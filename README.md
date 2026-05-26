@@ -15,7 +15,7 @@ npm install -g github:CorneliusTantius/volundr
 Specific ref/tag/branch:
 
 ```bash
-npm install -g github:CorneliusTantius/volundr#v0.1.0
+npm install -g github:CorneliusTantius/volundr#v1.0.0
 ```
 
 Note: direct GitHub npm install may fail on some systems because this repo needs a build step. `install.sh` is recommended.
@@ -31,13 +31,13 @@ curl -fsSL https://raw.githubusercontent.com/CorneliusTantius/volundr/main/insta
 Specific ref/tag/branch:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/CorneliusTantius/volundr/main/install.sh | sh -s -- v0.1.0
+curl -fsSL https://raw.githubusercontent.com/CorneliusTantius/volundr/main/install.sh | sh -s -- v1.0.0
 ```
 
 Or via env:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/CorneliusTantius/volundr/main/install.sh | VOLUNDR_VERSION=v0.1.0 sh
+curl -fsSL https://raw.githubusercontent.com/CorneliusTantius/volundr/main/install.sh | VOLUNDR_VERSION=v1.0.0 sh
 ```
 
 ## Run
@@ -48,6 +48,12 @@ From directory you want Pi to operate in:
 cd your-project
 volundr
 ```
+
+Default behavior:
+- starts in background
+- terminal stays usable
+- prints server id, URL, PID, cwd
+- track active servers with `volundr status`
 
 ## CLI commands
 
@@ -63,6 +69,24 @@ Version:
 volundr version
 ```
 
+Status:
+
+```bash
+volundr status
+```
+
+Stop server:
+
+```bash
+volundr stop 1
+```
+
+Restart server:
+
+```bash
+volundr restart 1
+```
+
 Update latest main:
 
 ```bash
@@ -72,12 +96,19 @@ volundr update
 Update specific tag/ref:
 
 ```bash
-volundr update v0.1.0
+volundr update v1.0.0
 ```
 
 Defaults:
 - UI + API served from: `http://localhost:8787`
+- if `8787` busy, server auto-increments to next free port
 - working directory = current shell directory
+
+Port control:
+- fixed port: `PORT=9000 volundr`
+- fixed port: `VOLUNDR_PORT=9000 volundr`
+- random free port: `PORT=0 volundr`
+- restart tries same port first; if busy, falls back to next free port
 
 ## Dev
 
@@ -88,7 +119,7 @@ npm run dev
 
 Dev URLs:
 - Web: `http://localhost:5173`
-- API/SSE: `http://localhost:8787`
+- API/SSE: `http://localhost:8787` default, auto-increments if busy
 
 ## Build
 

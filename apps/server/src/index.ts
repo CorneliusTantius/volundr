@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
-import { unlink } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { readdir, unlink, writeFile } from "node:fs/promises";
+import { extname, join, normalize, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type CreateAgentSessionRuntimeFactory,
@@ -77,7 +77,7 @@ type WebCommand =
   | { type: "promptResponse"; id: string; value: string | boolean | null; runtimeKey?: string }
   | { type: "shutdown" };
 
-const port = Number(process.env.PORT ?? 8787);
+const configuredPort = parsePort(process.env.PORT ?? process.env.VOLUNDR_PORT);
 const cwd = process.env.VOLUNDR_CWD ?? process.env.INIT_CWD ?? process.cwd();
 const serverDir = fileURLToPath(new URL(".", import.meta.url));
 const webDistDir = normalize(join(serverDir, "../../web/dist"));
@@ -166,6 +166,11 @@ const server = createServer(async (req, res) => {
       });
     }
 
+    if (req.method === "GET" && url.pathname === "/api/files") {
+      const prefix = String(url.searchParams.get("prefix") ?? "");
+      return json(res, { files: await getFileSuggestions(prefix) });
+    }
+
     if (req.method === "POST" && url.pathname === "/api/command") {
       const command = await readJson(req) as WebCommand;
       const entry = await ensureRuntime(normalizeRuntimeKey("runtimeKey" in command ? command.runtimeKey : undefined));
@@ -184,10 +189,82 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(port, () => {
-  console.log(`völundr server listening on http://localhost:${port}`);
-  console.log(`Pi cwd: ${cwd}`);
+const port = await listenOnAvailablePort(server, configuredPort, {
+  autoIncrement: process.env.PORT == null && process.env.VOLUNDR_PORT == null,
 });
+console.log(`völundr server listening on http://localhost:${port}`);
+if (port !== configuredPort) console.log(`Port ${configuredPort} busy -> using ${port}`);
+console.log(`Pi cwd: ${cwd}`);
+await writeReadyFile(port);
+
+function parsePort(value?: string) {
+  const raw = value?.trim();
+  if (!raw) return 8787;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 65535) {
+    throw new Error(`Invalid port: ${value}`);
+  }
+  return parsed;
+}
+
+async function listenOnAvailablePort(
+  server: ReturnType<typeof createServer>,
+  startPort: number,
+  options: { autoIncrement: boolean },
+) {
+  if (startPort === 0) {
+    await listen(server, 0);
+    return getListeningPort(server);
+  }
+
+  let port = startPort;
+  while (true) {
+    try {
+      await listen(server, port);
+      return port;
+    } catch (error) {
+      if (!options.autoIncrement || !isAddressInUse(error)) throw error;
+      port++;
+      if (port > 65535) throw new Error(`No available port found starting from ${startPort}`);
+    }
+  }
+}
+
+function listen(server: ReturnType<typeof createServer>, port: number) {
+  return new Promise<void>((resolve, reject) => {
+    const onError = (error: unknown) => {
+      server.off("listening", onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off("error", onError);
+      resolve();
+    };
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(port);
+  });
+}
+
+function isAddressInUse(error: unknown) {
+  return !!error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "EADDRINUSE";
+}
+
+function getListeningPort(server: ReturnType<typeof createServer>) {
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Server address unavailable");
+  return address.port;
+}
+
+async function writeReadyFile(port: number) {
+  const readyFile = process.env.VOLUNDR_READY_FILE;
+  if (!readyFile) return;
+  try {
+    await writeFile(readyFile, JSON.stringify({ pid: process.pid, port, cwd, startedAt: new Date().toISOString() }), "utf8");
+  } catch (error) {
+    console.error(`Failed to write ready file: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
 
 async function ensureRuntime(key: string) {
   const existing = runtimes.get(key);
@@ -564,6 +641,48 @@ function getModelOptions(entry: RuntimeEntry) {
   };
 }
 
+async function getFileSuggestions(prefix: string) {
+  const normalizedPrefix = prefix.replaceAll("\\", "/");
+  const slashIndex = normalizedPrefix.lastIndexOf("/");
+  const dirPrefix = slashIndex >= 0 ? normalizedPrefix.slice(0, slashIndex + 1) : "";
+  const partial = slashIndex >= 0 ? normalizedPrefix.slice(slashIndex + 1) : normalizedPrefix;
+  const targetDir = resolve(cwd, dirPrefix || ".");
+
+  if (!isPathInsideCwd(targetDir)) return [];
+
+  let entries;
+  try {
+    entries = await readdir(targetDir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+
+  const query = partial.toLowerCase();
+  return entries
+    .filter((entry) => !query || entry.name.toLowerCase().includes(query))
+    .sort((a, b) => {
+      const aStarts = query ? Number(a.name.toLowerCase().startsWith(query)) : 0;
+      const bStarts = query ? Number(b.name.toLowerCase().startsWith(query)) : 0;
+      if (aStarts !== bStarts) return bStarts - aStarts;
+      if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, 50)
+    .map((entry) => {
+      const path = `${dirPrefix}${entry.name}${entry.isDirectory() ? "/" : ""}`;
+      return {
+        name: entry.name,
+        path,
+        isDirectory: entry.isDirectory(),
+      };
+    });
+}
+
+function isPathInsideCwd(path: string) {
+  const rel = relative(cwd, path);
+  return rel === "" || (!rel.startsWith("..") && !rel.startsWith(`..${sep}`) && !rel.includes(`${sep}..${sep}`));
+}
+
 function getTincanStatus(): TincanStats | undefined {
   return (globalThis as any).__piTincan as TincanStats | undefined;
 }
@@ -703,5 +822,9 @@ async function shutdownServer() {
 }
 
 process.on("SIGINT", async () => {
+  await shutdownServer();
+});
+
+process.on("SIGTERM", async () => {
   await shutdownServer();
 });

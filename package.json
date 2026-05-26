@@ -1,6 +1,6 @@
 {
   "name": "volundr",
-  "version": "0.1.3",
+  "version": "1.0.0",
   "description": "Lightweight web harness for Pi coding agent",
   "type": "module",
   "workspaces": [

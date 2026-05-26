@@ -85,3 +85,10 @@ export async function getStats(runtimeKey?: string) {
     return response.json();
   });
 }
+
+export async function getFiles(prefix: string, runtimeKey?: string) {
+  const search = `?prefix=${encodeURIComponent(prefix)}`;
+  const response = await fetch(withRuntime(`${apiUrl}/api/files${search}`, runtimeKey));
+  if (!response.ok) throw new Error(await response.text());
+  return response.json();
+}

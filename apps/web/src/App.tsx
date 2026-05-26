@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import MarkdownIt from "markdown-it";
-import { command, events, getMessages, getModels, getSessions, getState, getStats } from "./api";
+import { command, events, getFiles, getMessages, getModels, getSessions, getState, getStats } from "./api";
 
 type StreamEvent = { type?: string; [key: string]: any };
 
@@ -11,6 +11,22 @@ type PromptState = {
   title: string;
   options?: string[];
   placeholder?: string;
+};
+
+type FileSuggestion = {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+};
+
+type MentionState = {
+  start: number;
+  end: number;
+  raw: string;
+  query: string;
+  suggestions: FileSuggestion[];
+  selectedIndex: number;
+  loading: boolean;
 };
 
 type SessionItem = {
@@ -134,6 +150,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [connection, setConnection] = useState<"connecting" | "connected" | "reconnecting">("connecting");
   const [promptState, setPromptState] = useState<PromptState | null>(null);
+  const [mentionState, setMentionState] = useState<MentionState | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const runtimeKeyRef = useRef(runtimeKey);
   const streamingBufferRef = useRef("");
@@ -149,6 +166,7 @@ export function App() {
   const inputDraftRef = useRef("");
   const toolFallbackIdsRef = useRef(new Map<string, string>());
   const toolSequenceRef = useRef(0);
+  const mentionFetchRef = useRef(0);
 
   const historicalToolIds = useMemo(() => collectHistoricalToolIds(messages), [messages]);
   const filteredSessions = useMemo(() => {
@@ -177,6 +195,15 @@ export function App() {
   useEffect(() => {
     autoSizeTextarea(textareaRef.current);
   }, [input]);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setMentionState(null);
+      return;
+    }
+    void updateMentionState(textarea.value, textarea.selectionStart ?? textarea.value.length);
+  }, [input, runtimeKey]);
 
   useEffect(() => {
     setToolRuns((prev) => {
@@ -613,6 +640,83 @@ export function App() {
     }
   }
 
+  async function updateMentionState(value: string, selectionStart: number) {
+    const mention = findMention(value, selectionStart);
+    if (!mention) {
+      setMentionState(null);
+      return;
+    }
+
+    const requestId = ++mentionFetchRef.current;
+    setMentionState((current) => ({
+      start: mention.start,
+      end: mention.end,
+      raw: mention.raw,
+      query: mention.query,
+      suggestions: current?.query === mention.query ? current.suggestions : [],
+      selectedIndex: 0,
+      loading: true,
+    }));
+
+    try {
+      const response = await getFiles(mention.query, runtimeKey) as { files?: FileSuggestion[] };
+      if (mentionFetchRef.current !== requestId) return;
+      const suggestions = Array.isArray(response.files) ? response.files : [];
+      setMentionState({
+        start: mention.start,
+        end: mention.end,
+        raw: mention.raw,
+        query: mention.query,
+        suggestions,
+        selectedIndex: suggestions.length ? 0 : -1,
+        loading: false,
+      });
+    } catch {
+      if (mentionFetchRef.current !== requestId) return;
+      setMentionState({
+        start: mention.start,
+        end: mention.end,
+        raw: mention.raw,
+        query: mention.query,
+        suggestions: [],
+        selectedIndex: -1,
+        loading: false,
+      });
+    }
+  }
+
+  function applyMentionSuggestion(suggestion: FileSuggestion) {
+    const active = mentionState;
+    const textarea = textareaRef.current;
+    if (!active || !textarea) return;
+
+    const before = input.slice(0, active.start);
+    const after = input.slice(active.end);
+    const insertion = formatMentionInsertion(suggestion.path);
+    const nextValue = `${before}${insertion}${after}`;
+    const nextCursor = before.length + insertion.length;
+
+    setInput(nextValue);
+    setMentionState(null);
+
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(nextCursor, nextCursor);
+      autoSizeTextarea(textarea);
+    });
+  }
+
+  function moveMentionSelection(direction: -1 | 1) {
+    setMentionState((current) => {
+      if (!current || !current.suggestions.length) return current;
+      const size = current.suggestions.length;
+      return {
+        ...current,
+        selectedIndex: (current.selectedIndex + direction + size) % size,
+      };
+    });
+  }
+
   async function renameSession(path: string, currentName?: string) {
     const next = window.prompt("Rename session", currentName ?? "");
     setSessionMenuPath(null);
@@ -730,34 +834,83 @@ export function App() {
               <option value="steer">steer</option>
               <option value="followUp">follow-up</option>
             </select>
-            <textarea
-              ref={textareaRef}
-              rows={2}
-              value={input}
-              placeholder="Tell Pi what to do..."
-              onInput={(event) => setInput((event.currentTarget as HTMLTextAreaElement).value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void send();
-                  return;
-                }
-                if (event.key === "Escape" && state?.isStreaming) {
-                  event.preventDefault();
-                  void run(() => command({ type: "abort", runtimeKey }));
-                  return;
-                }
-                if ((event.metaKey || event.ctrlKey) && event.key === "ArrowUp") {
-                  event.preventDefault();
-                  navigateInputHistory(-1);
-                  return;
-                }
-                if ((event.metaKey || event.ctrlKey) && event.key === "ArrowDown") {
-                  event.preventDefault();
-                  navigateInputHistory(1);
-                }
-              }}
-            />
+            <div class="composerInputWrap">
+              <textarea
+                ref={textareaRef}
+                rows={2}
+                value={input}
+                placeholder="Tell Pi what to do..."
+                onInput={(event) => {
+                  const textarea = event.currentTarget as HTMLTextAreaElement;
+                  setInput(textarea.value);
+                  void updateMentionState(textarea.value, textarea.selectionStart ?? textarea.value.length);
+                }}
+                onClick={(event) => {
+                  const textarea = event.currentTarget as HTMLTextAreaElement;
+                  void updateMentionState(textarea.value, textarea.selectionStart ?? textarea.value.length);
+                }}
+                onKeyUp={(event) => {
+                  const textarea = event.currentTarget as HTMLTextAreaElement;
+                  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
+                    void updateMentionState(textarea.value, textarea.selectionStart ?? textarea.value.length);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (mentionState?.suggestions.length) {
+                    if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      moveMentionSelection(1);
+                      return;
+                    }
+                    if (event.key === "ArrowUp") {
+                      event.preventDefault();
+                      moveMentionSelection(-1);
+                      return;
+                    }
+                    if (event.key === "Tab" || event.key === "Enter") {
+                      const choice = mentionState.suggestions[Math.max(0, mentionState.selectedIndex)];
+                      if (choice) {
+                        event.preventDefault();
+                        applyMentionSuggestion(choice);
+                        return;
+                      }
+                    }
+                  }
+                  if (event.key === "Escape") {
+                    if (mentionState) {
+                      event.preventDefault();
+                      setMentionState(null);
+                      return;
+                    }
+                    if (state?.isStreaming) {
+                      event.preventDefault();
+                      void run(() => command({ type: "abort", runtimeKey }));
+                      return;
+                    }
+                  }
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void send();
+                    return;
+                  }
+                  if ((event.metaKey || event.ctrlKey) && event.key === "ArrowUp") {
+                    event.preventDefault();
+                    navigateInputHistory(-1);
+                    return;
+                  }
+                  if ((event.metaKey || event.ctrlKey) && event.key === "ArrowDown") {
+                    event.preventDefault();
+                    navigateInputHistory(1);
+                  }
+                }}
+              />
+              {mentionState && (
+                <MentionMenu
+                  mention={mentionState}
+                  onSelect={applyMentionSuggestion}
+                />
+              )}
+            </div>
             <div class="composerActions">
               <button onClick={() => void send()}>send</button>
               <button onClick={() => void sendCompact()}>compact</button>
@@ -793,6 +946,34 @@ export function App() {
         />
       )}
     </main>
+  );
+}
+
+function MentionMenu({
+  mention,
+  onSelect,
+}: {
+  mention: MentionState;
+  onSelect: (suggestion: FileSuggestion) => void;
+}) {
+  return (
+    <div class="mentionMenu" role="listbox" aria-label="Path suggestions">
+      {mention.loading && <div class="mentionEmpty">loading…</div>}
+      {!mention.loading && !mention.suggestions.length && <div class="mentionEmpty">no matches</div>}
+      {mention.suggestions.map((suggestion, index) => (
+        <button
+          key={suggestion.path}
+          class={`mentionItem ${index === mention.selectedIndex ? "activeMentionItem" : ""}`}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            onSelect(suggestion);
+          }}
+        >
+          <span class="mentionPath">@{suggestion.path}</span>
+          <span class="mentionMeta">{suggestion.isDirectory ? "dir" : "file"}</span>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -960,6 +1141,7 @@ function StatsPanel({ stats }: { stats: WebStats }) {
   const session = stats.session ?? {};
   const tincan = stats.tincan;
   const topAgents = tincan?.squad?.topAgents ?? [];
+  const contextPct = typeof session.contextPct === "number" ? Math.max(0, Math.min(100, session.contextPct)) : null;
 
   return (
     <div class="statsGrid">
@@ -969,9 +1151,23 @@ function StatsPanel({ stats }: { stats: WebStats }) {
         <StatRow label="assistant" value={fmtNum(session.assistantMessages)} />
         <StatRow label="tool calls" value={fmtNum(session.toolCalls)} />
         <StatRow label="tool results" value={fmtNum(session.toolResults)} />
-        <StatRow label="tokens" value={fmtNum(session.totalTokens)} />
-        <StatRow label="cost" value={typeof session.cost === "number" ? `$${session.cost.toFixed(4)}` : "0"} />
-        <StatRow label="context" value={session.contextPct != null ? `${fmtPct(session.contextPct)}%` : "n/a"} />
+      </StatCard>
+
+      <StatCard title="Context Window">
+        <StatDetail
+          label="usage"
+          value={session.contextWindow ? `${fmtNum(session.contextTokens)} / ${fmtNum(session.contextWindow)} (${contextPct != null ? `${fmtPct(contextPct)}%` : "n/a"})` : "n/a"}
+          extra={contextPct != null ? <ProgressBar value={contextPct} /> : undefined}
+        />
+        <StatDetail
+          label="tokens"
+          value={joinStatParts([
+            `in: ${fmtNum(session.inputTokens)}`,
+            `out: ${fmtNum(session.outputTokens)}`,
+            `total: ${fmtNum(session.totalTokens)}`,
+            `cost: ${typeof session.cost === "number" ? `$${session.cost.toFixed(4)}` : "$0.0000"}`,
+          ])}
+        />
       </StatCard>
 
       <StatCard title="Tincan">
@@ -1017,6 +1213,27 @@ function StatRow({ label, value }: { label: string; value: string }) {
     <div class="statRow">
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function StatDetail({ label, value, extra }: { label: string; value: string; extra?: any }) {
+  return (
+    <div class="statDetail">
+      <div class="statRow statRowTop">
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+      {extra}
+    </div>
+  );
+}
+
+function ProgressBar({ value }: { value: number }) {
+  const clamped = Math.max(0, Math.min(100, value));
+  return (
+    <div class="progressBar" aria-label={`Context usage ${clamped.toFixed(2)}%`}>
+      <div class="progressBarFill" style={{ width: `${clamped}%` }} />
     </div>
   );
 }
@@ -1320,6 +1537,28 @@ function autoSizeTextarea(node: HTMLTextAreaElement | null) {
   if (!node) return;
   node.style.height = "0px";
   node.style.height = `${Math.min(node.scrollHeight, 220)}px`;
+}
+
+function findMention(value: string, cursor: number) {
+  const before = value.slice(0, cursor);
+  const match = before.match(/(^|\s)@([^\s@]*)$/);
+  if (!match) return null;
+  const raw = match[2] ?? "";
+  const start = cursor - raw.length - 1;
+  return {
+    start,
+    end: cursor,
+    raw: `@${raw}`,
+    query: raw,
+  };
+}
+
+function formatMentionInsertion(path: string) {
+  return path.includes(" ") ? `"${path}" ` : `${path} `;
+}
+
+function joinStatParts(parts: Array<string | undefined>) {
+  return parts.filter(Boolean).join(" · ");
 }
 
 function fmtNum(value: unknown) {
