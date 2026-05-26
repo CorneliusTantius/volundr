@@ -557,6 +557,17 @@ export function App() {
     }
   }
 
+  async function shutdownApp() {
+    setError(null);
+    try {
+      await command({ type: "shutdown" });
+      setConnection("reconnecting");
+      setError("völundr shutting down");
+    } catch (err) {
+      setError(errorText(err));
+    }
+  }
+
   async function switchToSession(path: string) {
     setError(null);
     try {
@@ -682,6 +693,7 @@ export function App() {
               <button onClick={() => void send()}>send</button>
               <button onClick={() => void sendCompact()}>compact</button>
               <button onClick={() => void run(() => command({ type: "abort", runtimeKey }))}>abort</button>
+              <button class="dangerButton" onClick={() => void shutdownApp()}>quit</button>
             </div>
           </footer>
         </section>

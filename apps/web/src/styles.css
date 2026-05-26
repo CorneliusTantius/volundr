@@ -578,6 +578,14 @@ textarea:focus-visible {
 .ghostButton:hover {
   background: rgba(137, 180, 250, 0.12);
 }
+.dangerButton {
+  border-color: rgba(243, 139, 168, 0.24);
+  background: rgba(243, 139, 168, 0.08);
+  color: var(--red);
+}
+.dangerButton:hover {
+  background: rgba(243, 139, 168, 0.16);
+}
 
 .composer {
   display: grid;

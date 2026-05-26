@@ -19,7 +19,8 @@ export type Command =
   | { type: "switchSession"; path: string; runtimeKey?: string }
   | { type: "compact"; instructions?: string; runtimeKey?: string }
   | { type: "setModel"; provider: string; modelId: string; runtimeKey?: string }
-  | { type: "setThinkingLevel"; level: string; runtimeKey?: string };
+  | { type: "setThinkingLevel"; level: string; runtimeKey?: string }
+  | { type: "shutdown" };
 
 function withRuntime(path: string, runtimeKey?: string) {
   if (!runtimeKey) return path;

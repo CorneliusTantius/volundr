@@ -45,7 +45,8 @@ type WebCommand =
   | { type: "switchSession"; path: string; runtimeKey?: string }
   | { type: "compact"; instructions?: string; runtimeKey?: string }
   | { type: "setModel"; provider: string; modelId: string; runtimeKey?: string }
-  | { type: "setThinkingLevel"; level: string; runtimeKey?: string };
+  | { type: "setThinkingLevel"; level: string; runtimeKey?: string }
+  | { type: "shutdown" };
 
 const port = Number(process.env.PORT ?? 8787);
 const cwd = process.env.VOLUNDR_CWD ?? process.env.INIT_CWD ?? process.cwd();
@@ -138,7 +139,7 @@ const server = createServer(async (req, res) => {
 
     if (req.method === "POST" && url.pathname === "/api/command") {
       const command = await readJson(req) as WebCommand;
-      const entry = await ensureRuntime(normalizeRuntimeKey(command.runtimeKey));
+      const entry = await ensureRuntime(normalizeRuntimeKey("runtimeKey" in command ? command.runtimeKey : undefined));
       const result = await handleCommand(entry, command);
       return json(res, result);
     }
@@ -304,6 +305,13 @@ async function handleCommand(entry: RuntimeEntry, command: WebCommand) {
       if (!THINKING_LEVELS.includes(level as any)) throw new Error(`Invalid thinking level: ${level}`);
       entry.runtime.session.setThinkingLevel(level as any);
       return { ok: true, runtimeKey: entry.key, state: getState(entry), models: getModelOptions(entry) };
+    }
+
+    case "shutdown": {
+      setTimeout(() => {
+        void shutdownServer();
+      }, 0);
+      return { ok: true, shuttingDown: true };
     }
 
     default:
@@ -507,11 +515,15 @@ function serveWebAsset(pathname: string, res: ServerResponse) {
   res.end(body);
 }
 
-process.on("SIGINT", async () => {
+async function shutdownServer() {
   for (const entry of runtimes.values()) {
     entry.unsubscribe?.();
     entry.disposalTimer && clearTimeout(entry.disposalTimer);
     await entry.runtime.dispose();
   }
-  process.exit(0);
+  server.close(() => process.exit(0));
+}
+
+process.on("SIGINT", async () => {
+  await shutdownServer();
 });
