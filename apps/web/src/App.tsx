@@ -863,7 +863,7 @@ function StatsPanel({ stats }: { stats: WebStats }) {
         <StatRow label="tool results" value={fmtNum(session.toolResults)} />
         <StatRow label="tokens" value={fmtNum(session.totalTokens)} />
         <StatRow label="cost" value={typeof session.cost === "number" ? `$${session.cost.toFixed(4)}` : "0"} />
-        <StatRow label="context" value={session.contextPct != null ? `${session.contextPct}%` : "n/a"} />
+        <StatRow label="context" value={session.contextPct != null ? `${fmtPct(session.contextPct)}%` : "n/a"} />
       </StatCard>
 
       <StatCard title="Tincan">
@@ -1216,6 +1216,10 @@ function autoSizeTextarea(node: HTMLTextAreaElement | null) {
 
 function fmtNum(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? new Intl.NumberFormat().format(value) : "0";
+}
+
+function fmtPct(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : "0.00";
 }
 
 function shortJson(value: unknown) {
