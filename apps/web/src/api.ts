@@ -1,4 +1,11 @@
-const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
+const apiUrl = import.meta.env.VITE_API_URL ?? getDefaultApiUrl();
+
+function getDefaultApiUrl() {
+  if (typeof window === "undefined") return "http://localhost:8787";
+  const { protocol, hostname, port, origin } = window.location;
+  if (port === "5173") return `${protocol}//${hostname}:8787`;
+  return origin;
+}
 
 const inflight = new Map<string, Promise<unknown>>();
 

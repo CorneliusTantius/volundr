@@ -164,6 +164,7 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 0.75rem;
+  overflow: visible;
 }
 .sessionSearch {
   width: 100%;
@@ -705,22 +706,25 @@ textarea:focus-visible {
 }
 
 .composer {
+  position: relative;
+  z-index: 8;
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr) auto;
   gap: 0.65rem;
   align-items: stretch;
   padding: 0.7rem;
+  overflow: visible;
 }
 .composerInputWrap {
   position: relative;
   min-width: 0;
+  width: 100%;
+  overflow: visible;
 }
 .mentionMenu {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(100% + 0.45rem);
-  z-index: 12;
+  position: relative;
+  margin-top: 0.45rem;
+  z-index: 1;
   display: grid;
   gap: 0.3rem;
   max-height: 14rem;
@@ -774,6 +778,9 @@ textarea:focus-visible {
   min-width: 5.5rem;
 }
 textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
   min-height: 3.2rem;
   max-height: 13.75rem;
   resize: none;

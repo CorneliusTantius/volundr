@@ -850,6 +850,7 @@ export function App() {
                   void updateMentionState(textarea.value, textarea.selectionStart ?? textarea.value.length);
                 }}
                 onKeyUp={(event) => {
+                  if (mentionState && ["ArrowUp", "ArrowDown"].includes(event.key)) return;
                   const textarea = event.currentTarget as HTMLTextAreaElement;
                   if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
                     void updateMentionState(textarea.value, textarea.selectionStart ?? textarea.value.length);
