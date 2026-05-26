@@ -47,6 +47,20 @@ cd your-project
 volundr
 ```
 
+## Update
+
+Latest main:
+
+```bash
+volundr update
+```
+
+Specific tag/ref:
+
+```bash
+volundr update v0.1.0
+```
+
 Defaults:
 - UI + API served from: `http://localhost:8787`
 - working directory = current shell directory
