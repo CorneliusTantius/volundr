@@ -181,6 +181,13 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
   overflow: auto;
   scrollbar-gutter: stable;
 }
+.sessionShell {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
+  align-items: start;
+}
 .sessionItem {
   display: grid;
   gap: 0.24rem;
@@ -223,8 +230,43 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
   border-color: rgba(148, 226, 213, 0.32);
   background: rgba(17, 74, 70, 0.35);
 }
+.activeSessionShell .sessionMenuButton {
+  border-color: rgba(148, 226, 213, 0.18);
+}
 .sessionItem small {
   color: var(--subtext0);
+}
+.sessionMenuWrap {
+  position: relative;
+}
+.sessionMenuButton {
+  min-width: 2.3rem;
+  height: 2.3rem;
+  padding: 0;
+  border-radius: 10px;
+  background: rgba(17, 17, 27, 0.55);
+}
+.sessionMenu {
+  position: absolute;
+  right: 0;
+  top: 2.5rem;
+  z-index: 10;
+  min-width: 8rem;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  border-radius: 12px;
+  border: 1px solid rgba(69, 71, 90, 0.92);
+  background: rgba(24, 24, 37, 0.98);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
+}
+.sessionMenu button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+}
+.sessionMenu .sessionDelete {
+  color: var(--red);
 }
 
 .statsRail {

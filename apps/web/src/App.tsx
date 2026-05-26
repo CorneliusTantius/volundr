@@ -116,6 +116,7 @@ export function App() {
   const [state, setState] = useState<any>(null);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [sessionFilter, setSessionFilter] = useState("");
+  const [sessionMenuPath, setSessionMenuPath] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingText, setStreamingText] = useState("");
   const [toolRuns, setToolRuns] = useState<ToolRun[]>([]);
@@ -578,6 +579,28 @@ export function App() {
     }
   }
 
+  async function renameSession(path: string, currentName?: string) {
+    const next = window.prompt("Rename session", currentName ?? "");
+    setSessionMenuPath(null);
+    if (next == null) return;
+    const name = next.trim();
+    if (!name) return;
+    await run(() => command({ type: "renameSession", path, name, runtimeKey }));
+  }
+
+  async function deleteSession(path: string, active?: boolean) {
+    const confirmed = window.confirm("Delete this session?");
+    setSessionMenuPath(null);
+    if (!confirmed) return;
+    await run(() => command({ type: "deleteSession", path, runtimeKey }));
+    if (active) {
+      replaceMessages([]);
+      resetStreaming();
+      setToolRuns([]);
+      setState(null);
+    }
+  }
+
   function pushInputHistory(text: string) {
     if (!text) return;
     const history = inputHistoryRef.current;
@@ -629,19 +652,31 @@ export function App() {
               const path = session.path ?? session.file ?? session.sessionFile;
               const active = !!path && path === state?.sessionFile;
               return (
-                <button
-                  key={path ?? index}
-                  class={`sessionItem ${active ? "activeSession" : ""}`}
-                  disabled={!path || active}
-                  title={path ?? ""}
-                  onClick={() => path && !active && void switchToSession(path)}
-                >
-                  <span class="sessionPrimary">
-                    <span>{sessionTitle(session, index)}</span>
-                    {session.isStreaming && <span class="sessionLiveDot" aria-label="running" />}
-                  </span>
-                  <small>{sessionMeta(session)}</small>
-                </button>
+                <div key={path ?? index} class={`sessionShell ${active ? "activeSessionShell" : ""}`}>
+                  <button
+                    class={`sessionItem ${active ? "activeSession" : ""}`}
+                    disabled={!path || active}
+                    title={path ?? ""}
+                    onClick={() => path && !active && void switchToSession(path)}
+                  >
+                    <span class="sessionPrimary">
+                      <span>{sessionTitle(session, index)}</span>
+                      {session.isStreaming && <span class="sessionLiveDot" aria-label="running" />}
+                    </span>
+                    <small>{sessionMeta(session)}</small>
+                  </button>
+                  {path && (
+                    <div class="sessionMenuWrap">
+                      <button class="sessionMenuButton" onClick={() => setSessionMenuPath((prev) => prev === path ? null : path)}>⋯</button>
+                      {sessionMenuPath === path && (
+                        <div class="sessionMenu">
+                          <button onClick={() => void renameSession(path, session.displayName ?? session.name)}>rename</button>
+                          <button class="sessionDelete" onClick={() => void deleteSession(path, active)}>delete</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

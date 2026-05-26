@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync, readFileSync } from "node:fs";
+import { unlink } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -46,6 +47,8 @@ type WebCommand =
   | { type: "compact"; instructions?: string; runtimeKey?: string }
   | { type: "setModel"; provider: string; modelId: string; runtimeKey?: string }
   | { type: "setThinkingLevel"; level: string; runtimeKey?: string }
+  | { type: "renameSession"; path: string; name: string; runtimeKey?: string }
+  | { type: "deleteSession"; path: string; runtimeKey?: string }
   | { type: "shutdown" };
 
 const port = Number(process.env.PORT ?? 8787);
@@ -305,6 +308,36 @@ async function handleCommand(entry: RuntimeEntry, command: WebCommand) {
       if (!THINKING_LEVELS.includes(level as any)) throw new Error(`Invalid thinking level: ${level}`);
       entry.runtime.session.setThinkingLevel(level as any);
       return { ok: true, runtimeKey: entry.key, state: getState(entry), models: getModelOptions(entry) };
+    }
+
+    case "renameSession": {
+      const path = String(command.path ?? "").trim();
+      const name = String(command.name ?? "").trim();
+      if (!path) throw new Error("renameSession requires path");
+      if (!name) throw new Error("renameSession requires name");
+      const target = findRuntimeBySessionFile(path);
+      if (target) {
+        target.runtime.session.sessionManager.appendSessionInfo(name);
+        broadcast(target, { type: "session_info_changed", name });
+        broadcastAll({ type: "volundr_sessions_changed", activity: getSessionActivity() });
+      } else {
+        const manager = SessionManager.open(path);
+        manager.appendSessionInfo(name);
+      }
+      return { ok: true };
+    }
+
+    case "deleteSession": {
+      const path = String(command.path ?? "").trim();
+      if (!path) throw new Error("deleteSession requires path");
+      const target = findRuntimeBySessionFile(path);
+      if (target) {
+        if (target.runtime.session.isStreaming) await target.runtime.session.abort();
+        if (target.key !== DEFAULT_RUNTIME_KEY) await disposeRuntime(target.key);
+      }
+      await unlink(path);
+      broadcastAll({ type: "volundr_sessions_changed", activity: getSessionActivity() });
+      return { ok: true };
     }
 
     case "shutdown": {

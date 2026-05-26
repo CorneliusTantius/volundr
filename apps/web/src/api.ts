@@ -20,6 +20,8 @@ export type Command =
   | { type: "compact"; instructions?: string; runtimeKey?: string }
   | { type: "setModel"; provider: string; modelId: string; runtimeKey?: string }
   | { type: "setThinkingLevel"; level: string; runtimeKey?: string }
+  | { type: "renameSession"; path: string; name: string; runtimeKey?: string }
+  | { type: "deleteSession"; path: string; runtimeKey?: string }
   | { type: "shutdown" };
 
 function withRuntime(path: string, runtimeKey?: string) {
