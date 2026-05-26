@@ -16,12 +16,12 @@
     "README.md"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace @volundr/server & npm run dev --workspace @volundr/web",
-    "dev:server": "npm run dev --workspace @volundr/server",
-    "dev:web": "npm run dev --workspace @volundr/web",
-    "build": "npm run build --workspace @volundr/web && npm run build --workspace @volundr/server",
+    "dev": "npm run dev --prefix apps/server & npm run dev --prefix apps/web",
+    "dev:server": "npm run dev --prefix apps/server",
+    "dev:web": "npm run dev --prefix apps/web",
+    "build": "npm run build --prefix apps/web && npm run build --prefix apps/server",
     "prepare": "npm run build",
-    "typecheck": "npm run typecheck --workspace @volundr/server && npm run typecheck --workspace @volundr/web"
+    "typecheck": "npm run typecheck --prefix apps/server && npm run typecheck --prefix apps/web"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.75.5"
