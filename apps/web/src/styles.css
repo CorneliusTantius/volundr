@@ -281,20 +281,53 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
 .configCard {
   margin-bottom: 0;
 }
-.configField {
-  display: grid;
-  gap: 0.35rem;
+.configTrigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
+  background: rgba(17, 17, 27, 0.58);
 }
-.configField > span {
+.configTrigger span {
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--subtext0);
 }
-.configSelect {
-  width: 100%;
-  max-width: none;
+.configTrigger strong {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.configModalCard {
+  width: min(44rem, 100%);
+}
+.configOptionList {
+  display: grid;
+  gap: 0.55rem;
+}
+.configOption {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
+  padding: 0.85rem 0.95rem;
+  background: rgba(17, 17, 27, 0.82);
+}
+.activeConfigOption {
+  border-color: rgba(148, 226, 213, 0.28);
+  background: rgba(148, 226, 213, 0.12);
+}
+.configOptionMark {
+  color: var(--teal);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 .statsBadge {
   color: var(--teal);

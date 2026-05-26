@@ -29,6 +29,8 @@ type MentionState = {
   loading: boolean;
 };
 
+type ConfigModalState = "model" | "thinking";
+
 type SessionItem = {
   path?: string;
   file?: string;
@@ -151,6 +153,7 @@ export function App() {
   const [connection, setConnection] = useState<"connecting" | "connected" | "reconnecting">("connecting");
   const [promptState, setPromptState] = useState<PromptState | null>(null);
   const [mentionState, setMentionState] = useState<MentionState | null>(null);
+  const [configModal, setConfigModal] = useState<ConfigModalState | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mentionMenuRef = useRef<HTMLDivElement>(null);
   const runtimeKeyRef = useRef(runtimeKey);
@@ -933,10 +936,15 @@ export function App() {
 
         <aside class="panel statsRail">
           <ConfigPanel
-            state={state}
-            modelOptions={modelOptions}
-            onSetModel={setModelSelection}
-            onSetThinking={setThinkingSelection}
+            cwd={state?.cwd}
+            currentModelLabel={friendlyModelLabel({
+              provider: state?.model?.provider ?? modelOptions.current?.provider ?? "unknown",
+              modelId: state?.model?.id ?? state?.model?.modelId ?? modelOptions.current?.modelId ?? "unknown",
+              name: state?.model?.name,
+            })}
+            currentThinkingLevel={state?.thinkingLevel ?? modelOptions.current?.thinkingLevel ?? "medium"}
+            onOpenModel={() => setConfigModal("model")}
+            onOpenThinking={() => setConfigModal("thinking")}
           />
           <div class="statsRailSpacer" />
           <div>
@@ -954,6 +962,40 @@ export function App() {
           prompt={promptState}
           onSubmit={answerPrompt}
           onCancel={() => void answerPrompt(null)}
+        />
+      )}
+
+      {configModal === "model" && (
+        <ConfigSelectModal
+          title="Select model"
+          badge="config"
+          options={(modelOptions.models ?? []).map((model) => ({
+            key: `${model.provider}/${model.modelId}`,
+            label: friendlyModelLabel(model),
+            selected: `${state?.model?.provider ?? modelOptions.current?.provider ?? ""}/${state?.model?.id ?? state?.model?.modelId ?? modelOptions.current?.modelId ?? ""}` === `${model.provider}/${model.modelId}`,
+            onSelect: async () => {
+              await setModelSelection(`${model.provider}/${model.modelId}`);
+              setConfigModal(null);
+            },
+          }))}
+          onClose={() => setConfigModal(null)}
+        />
+      )}
+
+      {configModal === "thinking" && (
+        <ConfigSelectModal
+          title="Select thinking level"
+          badge="config"
+          options={(state?.availableThinkingLevels ?? modelOptions.current?.availableThinkingLevels ?? modelOptions.thinkingLevels ?? []).map((level: string) => ({
+            key: level,
+            label: level,
+            selected: (state?.thinkingLevel ?? modelOptions.current?.thinkingLevel ?? "medium") === level,
+            onSelect: async () => {
+              await setThinkingSelection(level);
+              setConfigModal(null);
+            },
+          }))}
+          onClose={() => setConfigModal(null)}
         />
       )}
     </main>
@@ -1105,49 +1147,89 @@ function TranscriptPanel({
 }
 
 function ConfigPanel({
-  state,
-  modelOptions,
-  onSetModel,
-  onSetThinking,
+  cwd,
+  currentModelLabel,
+  currentThinkingLevel,
+  onOpenModel,
+  onOpenThinking,
 }: {
-  state: any;
-  modelOptions: ModelOptionsResponse;
-  onSetModel: (value: string) => Promise<void>;
-  onSetThinking: (value: string) => Promise<void>;
+  cwd?: string;
+  currentModelLabel: string;
+  currentThinkingLevel: string;
+  onOpenModel: () => void;
+  onOpenThinking: () => void;
 }) {
   return (
     <section class="statCard configCard">
       <div class="statTitle">Config</div>
       <div class="statBody">
-        <StatRow label="cwd" value={shortenPath(state?.cwd ?? "unknown")} />
-        <label class="configField">
+        <StatRow label="cwd" value={shortenPath(cwd ?? "unknown")} />
+        <button class="configTrigger" onClick={onOpenModel}>
           <span>model</span>
-          <select
-            class="topSelect configSelect"
-            value={`${state?.model?.provider ?? modelOptions.current?.provider ?? ""}/${state?.model?.id ?? state?.model?.modelId ?? modelOptions.current?.modelId ?? ""}`}
-            onChange={(event) => void onSetModel((event.currentTarget as HTMLSelectElement).value)}
-          >
-            {(modelOptions.models ?? []).map((model) => (
-              <option key={`${model.provider}/${model.modelId}`} value={`${model.provider}/${model.modelId}`}>
-                {friendlyModelLabel(model)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label class="configField">
+          <strong>{currentModelLabel}</strong>
+        </button>
+        <button class="configTrigger" onClick={onOpenThinking}>
           <span>thinking</span>
-          <select
-            class="topSelect configSelect"
-            value={state?.thinkingLevel ?? modelOptions.current?.thinkingLevel ?? "medium"}
-            onChange={(event) => void onSetThinking((event.currentTarget as HTMLSelectElement).value)}
-          >
-            {(state?.availableThinkingLevels ?? modelOptions.current?.availableThinkingLevels ?? modelOptions.thinkingLevels ?? []).map((level: string) => (
-              <option key={level} value={level}>{level}</option>
-            ))}
-          </select>
-        </label>
+          <strong>{currentThinkingLevel}</strong>
+        </button>
       </div>
     </section>
+  );
+}
+
+function ModalShell({
+  title,
+  badge,
+  children,
+  onClose,
+}: {
+  title: string;
+  badge: string;
+  children: any;
+  onClose: () => void;
+}) {
+  return (
+    <div class="promptOverlay" role="dialog" aria-modal="true">
+      <div class="promptCard panel configModalCard">
+        <div class="panelTitle">
+          <strong>{title}</strong>
+          <span class="statsBadge">{badge}</span>
+        </div>
+        <div class="promptBody">{children}</div>
+        <div class="promptFooterActions">
+          <button class="ghostButton" onClick={onClose}>close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConfigSelectModal({
+  title,
+  badge,
+  options,
+  onClose,
+}: {
+  title: string;
+  badge: string;
+  options: Array<{ key: string; label: string; selected?: boolean; onSelect: () => Promise<void> }>;
+  onClose: () => void;
+}) {
+  return (
+    <ModalShell title={title} badge={badge} onClose={onClose}>
+      <div class="configOptionList">
+        {options.map((option) => (
+          <button
+            key={option.key}
+            class={`configOption ${option.selected ? "activeConfigOption" : ""}`}
+            onClick={() => void option.onSelect()}
+          >
+            <span>{option.label}</span>
+            {option.selected && <span class="configOptionMark">current</span>}
+          </button>
+        ))}
+      </div>
+    </ModalShell>
   );
 }
 
