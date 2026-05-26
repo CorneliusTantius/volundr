@@ -7,7 +7,7 @@ Lightweight web harness for Pi coding agent.
 ### npm
 
 ```bash
-npm install -g volundr
+npm install -g github:CorneliusTantius/volundr
 ```
 
 ### install.sh
@@ -67,4 +67,5 @@ Build output:
 - packaged CLI serves built SPA directly from server
 - built-in Pi tools come from Pi defaults
 - current directory is passed as `VOLUNDR_CWD`
+- install.sh currently installs from GitHub repo, not npm registry
 - Node `>= 22.19.0` required

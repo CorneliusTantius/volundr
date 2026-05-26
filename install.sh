@@ -2,6 +2,7 @@
 set -eu
 
 PACKAGE_NAME="volundr"
+PACKAGE_SOURCE="github:CorneliusTantius/volundr"
 MIN_NODE_MAJOR=22
 MIN_NODE_MINOR=19
 
@@ -24,8 +25,8 @@ if [ "$NODE_MAJOR" -lt "$MIN_NODE_MAJOR" ] || { [ "$NODE_MAJOR" -eq "$MIN_NODE_M
   exit 1
 fi
 
-echo "installing $PACKAGE_NAME globally..."
-npm install -g "$PACKAGE_NAME"
+echo "installing $PACKAGE_NAME globally from $PACKAGE_SOURCE ..."
+npm install -g "$PACKAGE_SOURCE"
 
 echo
 echo "installed."
