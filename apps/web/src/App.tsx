@@ -4,6 +4,15 @@ import { command, events, getMessages, getModels, getSessions, getState, getStat
 
 type StreamEvent = { type?: string; [key: string]: any };
 
+type PromptState = {
+  id: string;
+  runtimeKey: string;
+  promptType: "select" | "input" | "confirm";
+  title: string;
+  options?: string[];
+  placeholder?: string;
+};
+
 type SessionItem = {
   path?: string;
   file?: string;
@@ -124,6 +133,7 @@ export function App() {
   const [stats, setStats] = useState<WebStats>({});
   const [error, setError] = useState<string | null>(null);
   const [connection, setConnection] = useState<"connecting" | "connected" | "reconnecting">("connecting");
+  const [promptState, setPromptState] = useState<PromptState | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const runtimeKeyRef = useRef(runtimeKey);
   const streamingBufferRef = useRef("");
@@ -318,6 +328,19 @@ export function App() {
           break;
         case "volundr_error":
           setError(event.message ?? "unknown error");
+          break;
+        case "volundr_notify":
+          setError(event.message ?? null);
+          break;
+        case "volundr_prompt":
+          setPromptState({
+            id: String(event.id ?? ""),
+            runtimeKey: String(event.runtimeKey ?? runtimeKeyRef.current),
+            promptType: event.promptType,
+            title: String(event.title ?? ""),
+            options: Array.isArray(event.options) ? event.options.map((item: unknown) => String(item)) : undefined,
+            placeholder: typeof event.placeholder === "string" ? event.placeholder : undefined,
+          });
           break;
       }
     }
@@ -569,6 +592,17 @@ export function App() {
     }
   }
 
+  async function answerPrompt(value: string | boolean | null) {
+    const active = promptState;
+    if (!active) return;
+    try {
+      await command({ type: "promptResponse", id: active.id, value, runtimeKey: active.runtimeKey });
+      setPromptState((current) => current?.id === active.id ? null : current);
+    } catch (err) {
+      setError(errorText(err));
+    }
+  }
+
   async function switchToSession(path: string) {
     setError(null);
     try {
@@ -750,7 +784,81 @@ export function App() {
           </div>
         </aside>
       </section>
+
+      {promptState && (
+        <PromptDialog
+          prompt={promptState}
+          onSubmit={answerPrompt}
+          onCancel={() => void answerPrompt(null)}
+        />
+      )}
     </main>
+  );
+}
+
+function PromptDialog({
+  prompt,
+  onSubmit,
+  onCancel,
+}: {
+  prompt: PromptState;
+  onSubmit: (value: string | boolean | null) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [inputValue, setInputValue] = useState("");
+  const titleLines = useMemo(() => prompt.title.split(/\n{2,}|\n/).filter(Boolean), [prompt.title]);
+
+  useEffect(() => {
+    setInputValue("");
+  }, [prompt.id]);
+
+  return (
+    <div class="promptOverlay" role="dialog" aria-modal="true">
+      <div class="promptCard panel">
+        <div class="panelTitle">
+          <strong>{prompt.promptType === "input" ? "Input required" : prompt.promptType === "confirm" ? "Confirm action" : "Choose option"}</strong>
+          <span class="statsBadge">extension ui</span>
+        </div>
+        <div class="promptBody">
+          {titleLines.map((line, index) => <p key={`${prompt.id}-${index}`}>{line}</p>)}
+          {prompt.promptType === "select" && (
+            <div class="promptOptions">
+              {(prompt.options ?? []).map((option) => (
+                <button key={option} class="promptOption" onClick={() => void onSubmit(option)}>{option}</button>
+              ))}
+            </div>
+          )}
+          {prompt.promptType === "confirm" && (
+            <div class="promptActionsInline">
+              <button onClick={() => void onSubmit(true)}>confirm</button>
+              <button class="ghostButton" onClick={() => void onSubmit(false)}>cancel</button>
+            </div>
+          )}
+          {prompt.promptType === "input" && (
+            <form class="promptInputForm" onSubmit={(event) => {
+              event.preventDefault();
+              void onSubmit(inputValue);
+            }}>
+              <input
+                autoFocus
+                value={inputValue}
+                placeholder={prompt.placeholder ?? "Type answer..."}
+                onInput={(event) => setInputValue((event.currentTarget as HTMLInputElement).value)}
+              />
+              <div class="promptActionsInline">
+                <button type="submit">submit</button>
+                <button type="button" class="ghostButton" onClick={onCancel}>cancel</button>
+              </div>
+            </form>
+          )}
+        </div>
+        {prompt.promptType === "select" && (
+          <div class="promptFooterActions">
+            <button class="ghostButton" onClick={onCancel}>cancel</button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

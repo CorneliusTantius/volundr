@@ -22,6 +22,7 @@ export type Command =
   | { type: "setThinkingLevel"; level: string; runtimeKey?: string }
   | { type: "renameSession"; path: string; name: string; runtimeKey?: string }
   | { type: "deleteSession"; path: string; runtimeKey?: string }
+  | { type: "promptResponse"; id: string; value: string | boolean | null; runtimeKey?: string }
   | { type: "shutdown" };
 
 function withRuntime(path: string, runtimeKey?: string) {

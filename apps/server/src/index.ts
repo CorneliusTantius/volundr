@@ -5,6 +5,8 @@ import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type CreateAgentSessionRuntimeFactory,
+  type ExtensionUIDialogOptions,
+  type ExtensionUIContext,
   createAgentSessionFromServices,
   createAgentSessionRuntime,
   createAgentSessionServices,
@@ -28,10 +30,33 @@ type TincanStats = {
   footer?: { input: number; output: number; total: number; cost: number; contextTokens: number; contextWindow: number; contextPct: number | null };
 };
 
+type PromptKind = "select" | "input" | "confirm";
+
+type PromptEvent = {
+  type: "volundr_prompt";
+  runtimeKey: string;
+  id: string;
+  promptType: PromptKind;
+  title: string;
+  options?: string[];
+  placeholder?: string;
+};
+
+type PendingPrompt = {
+  id: string;
+  promptType: PromptKind;
+  event: PromptEvent;
+  resolve: (value: string | boolean | undefined) => void;
+  timer?: NodeJS.Timeout;
+  abortCleanup?: () => void;
+};
+
 type RuntimeEntry = {
   key: string;
   runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>>;
   clients: Set<ServerResponse>;
+  pendingPrompts: Map<string, PendingPrompt>;
+  currentPrompt?: PromptEvent;
   unsubscribe?: () => void;
   lastUsedAt: number;
   disposalTimer?: NodeJS.Timeout;
@@ -49,6 +74,7 @@ type WebCommand =
   | { type: "setThinkingLevel"; level: string; runtimeKey?: string }
   | { type: "renameSession"; path: string; name: string; runtimeKey?: string }
   | { type: "deleteSession"; path: string; runtimeKey?: string }
+  | { type: "promptResponse"; id: string; value: string | boolean | null; runtimeKey?: string }
   | { type: "shutdown" };
 
 const port = Number(process.env.PORT ?? 8787);
@@ -181,6 +207,7 @@ async function ensureRuntime(key: string) {
     key,
     runtime,
     clients: new Set(),
+    pendingPrompts: new Map(),
     lastUsedAt: Date.now(),
   };
 
@@ -219,6 +246,7 @@ async function disposeRuntime(key: string) {
   const entry = runtimes.get(key);
   if (!entry || key === DEFAULT_RUNTIME_KEY) return;
   entry.unsubscribe?.();
+  cancelPendingPrompts(entry);
   entry.disposalTimer && clearTimeout(entry.disposalTimer);
   for (const client of entry.clients) {
     try { client.end(); } catch {}
@@ -231,7 +259,8 @@ async function disposeRuntime(key: string) {
 
 async function bindCurrentSession(entry: RuntimeEntry, reason: string) {
   entry.unsubscribe?.();
-  await entry.runtime.session.bindExtensions({});
+  cancelPendingPrompts(entry);
+  await entry.runtime.session.bindExtensions({ uiContext: createWebUIContext(entry) });
   entry.unsubscribe = entry.runtime.session.subscribe((event) => {
     touchRuntime(entry);
     broadcast(entry, event);
@@ -241,6 +270,106 @@ async function bindCurrentSession(entry: RuntimeEntry, reason: string) {
   });
   broadcast(entry, { type: "volundr_session_bound", reason, state: getState(entry) });
   broadcastAll({ type: "volundr_sessions_changed", activity: getSessionActivity() });
+}
+
+function createWebUIContext(entry: RuntimeEntry): ExtensionUIContext {
+  return {
+    select(title: string, options: string[], opts?: ExtensionUIDialogOptions) {
+      return requestPrompt(entry, { promptType: "select", title, options }, opts) as Promise<string | undefined>;
+    },
+    async confirm(title: string, message: string, opts?: ExtensionUIDialogOptions) {
+      return (await requestPrompt(entry, {
+        promptType: "confirm",
+        title: [title, message].filter(Boolean).join("\n\n"),
+      }, opts)) === true;
+    },
+    input(title: string, placeholder?: string, opts?: ExtensionUIDialogOptions) {
+      return requestPrompt(entry, { promptType: "input", title, placeholder }, opts) as Promise<string | undefined>;
+    },
+    notify(message: string, notifyType: "info" | "warning" | "error" = "info") {
+      broadcast(entry, { type: "volundr_notify", runtimeKey: entry.key, id: crypto.randomUUID(), notifyType, message });
+    },
+    onTerminalInput() { return () => {}; },
+    setStatus() {},
+    setWorkingMessage() {},
+    setWorkingVisible() {},
+    setWorkingIndicator() {},
+    setHiddenThinkingLabel() {},
+    setWidget() {},
+    setFooter() {},
+    setHeader() {},
+    setTitle() {},
+    async custom() { return undefined; },
+    pasteToEditor() {},
+    setEditorText() {},
+    getEditorText() { return ""; },
+    async editor() { return undefined; },
+    addAutocompleteProvider() {},
+    setEditorComponent() {},
+    getEditorComponent() { return undefined; },
+    getAllThemes() { return []; },
+    getTheme() { return undefined; },
+    setTheme() { return { success: false, error: "theme control not available in web harness" }; },
+    getToolsExpanded() { return false; },
+    setToolsExpanded() {},
+    get theme() { return undefined as any; },
+  } as unknown as ExtensionUIContext;
+}
+
+function requestPrompt(
+  entry: RuntimeEntry,
+  prompt: Omit<PromptEvent, "type" | "runtimeKey" | "id">,
+  opts?: { signal?: AbortSignal; timeout?: number },
+) {
+  if (entry.clients.size === 0) return Promise.resolve(prompt.promptType === "confirm" ? false : undefined);
+  if (opts?.signal?.aborted) return Promise.resolve(prompt.promptType === "confirm" ? false : undefined);
+
+  const id = crypto.randomUUID();
+  const event: PromptEvent = { type: "volundr_prompt", runtimeKey: entry.key, id, ...prompt };
+
+  return new Promise<string | boolean | undefined>((resolve) => {
+    const pending: PendingPrompt = { id, promptType: prompt.promptType, event, resolve };
+
+    if (opts?.timeout && opts.timeout > 0) {
+      pending.timer = setTimeout(() => {
+        resolvePrompt(entry, id, undefined);
+      }, opts.timeout);
+    }
+
+    if (opts?.signal) {
+      const onAbort = () => {
+        resolvePrompt(entry, id, undefined);
+      };
+      opts.signal.addEventListener("abort", onAbort, { once: true });
+      pending.abortCleanup = () => opts.signal?.removeEventListener("abort", onAbort);
+    }
+
+    entry.pendingPrompts.set(id, pending);
+    entry.currentPrompt = event;
+    broadcast(entry, event);
+  });
+}
+
+function resolvePrompt(entry: RuntimeEntry, id: string, value: string | boolean | undefined) {
+  const pending = entry.pendingPrompts.get(id);
+  if (!pending) return false;
+
+  entry.pendingPrompts.delete(id);
+  if (entry.currentPrompt?.id === id) entry.currentPrompt = undefined;
+  if (pending.timer) clearTimeout(pending.timer);
+  pending.abortCleanup?.();
+
+  if (pending.promptType === "confirm") {
+    pending.resolve(value === true);
+  } else {
+    pending.resolve(typeof value === "string" ? value : undefined);
+  }
+
+  return true;
+}
+
+function cancelPendingPrompts(entry: RuntimeEntry) {
+  for (const id of [...entry.pendingPrompts.keys()]) resolvePrompt(entry, id, undefined);
 }
 
 async function handleCommand(entry: RuntimeEntry, command: WebCommand) {
@@ -338,6 +467,20 @@ async function handleCommand(entry: RuntimeEntry, command: WebCommand) {
       await unlink(path);
       broadcastAll({ type: "volundr_sessions_changed", activity: getSessionActivity() });
       return { ok: true };
+    }
+
+    case "promptResponse": {
+      const id = String(command.id ?? "").trim();
+      if (!id) throw new Error("promptResponse requires id");
+      const pending = entry.pendingPrompts.get(id);
+      if (!pending) return { ok: true, resolved: false, runtimeKey: entry.key };
+      const rawValue = command.value;
+      const value = pending.promptType === "confirm"
+        ? rawValue === true
+        : typeof rawValue === "string"
+          ? rawValue
+          : undefined;
+      return { ok: true, resolved: resolvePrompt(entry, id, value), runtimeKey: entry.key };
     }
 
     case "shutdown": {
@@ -486,6 +629,7 @@ function openEvents(entry: RuntimeEntry, req: IncomingMessage, res: ServerRespon
 
   entry.clients.add(res);
   sendEvent(res, { type: "volundr_connected", state: getState(entry) });
+  if (entry.currentPrompt) sendEvent(res, entry.currentPrompt);
 
   const keepAlive = setInterval(() => res.write(`: keepalive\n\n`), 15000);
   req.on("close", () => {
@@ -551,6 +695,7 @@ function serveWebAsset(pathname: string, res: ServerResponse) {
 async function shutdownServer() {
   for (const entry of runtimes.values()) {
     entry.unsubscribe?.();
+    cancelPendingPrompts(entry);
     entry.disposalTimer && clearTimeout(entry.disposalTimer);
     await entry.runtime.dispose();
   }
