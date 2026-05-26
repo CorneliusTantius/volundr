@@ -47,15 +47,27 @@ cd your-project
 volundr
 ```
 
-## Update
+## CLI commands
 
-Latest main:
+Help:
+
+```bash
+volundr help
+```
+
+Version:
+
+```bash
+volundr version
+```
+
+Update latest main:
 
 ```bash
 volundr update
 ```
 
-Specific tag/ref:
+Update specific tag/ref:
 
 ```bash
 volundr update v0.1.0
