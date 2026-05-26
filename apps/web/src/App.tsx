@@ -152,6 +152,7 @@ export function App() {
   const [promptState, setPromptState] = useState<PromptState | null>(null);
   const [mentionState, setMentionState] = useState<MentionState | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mentionMenuRef = useRef<HTMLDivElement>(null);
   const runtimeKeyRef = useRef(runtimeKey);
   const streamingBufferRef = useRef("");
   const streamingFrameRef = useRef<number | null>(null);
@@ -717,6 +718,14 @@ export function App() {
     });
   }
 
+  useEffect(() => {
+    const menu = mentionMenuRef.current;
+    const active = mentionState;
+    if (!menu || !active || active.selectedIndex < 0) return;
+    const item = menu.querySelector<HTMLElement>(`[data-mention-index="${active.selectedIndex}"]`);
+    item?.scrollIntoView({ block: "nearest" });
+  }, [mentionState?.selectedIndex, mentionState?.suggestions.length]);
+
   async function renameSession(path: string, currentName?: string) {
     const next = window.prompt("Rename session", currentName ?? "");
     setSessionMenuPath(null);
@@ -907,6 +916,7 @@ export function App() {
               />
               {mentionState && (
                 <MentionMenu
+                  menuRef={mentionMenuRef}
                   mention={mentionState}
                   onSelect={applyMentionSuggestion}
                 />
@@ -953,17 +963,20 @@ export function App() {
 function MentionMenu({
   mention,
   onSelect,
+  menuRef,
 }: {
   mention: MentionState;
   onSelect: (suggestion: FileSuggestion) => void;
+  menuRef?: { current: HTMLDivElement | null };
 }) {
   return (
-    <div class="mentionMenu" role="listbox" aria-label="Path suggestions">
+    <div ref={menuRef} class="mentionMenu" role="listbox" aria-label="Path suggestions">
       {mention.loading && <div class="mentionEmpty">loading…</div>}
       {!mention.loading && !mention.suggestions.length && <div class="mentionEmpty">no matches</div>}
       {mention.suggestions.map((suggestion, index) => (
         <button
           key={suggestion.path}
+          data-mention-index={index}
           class={`mentionItem ${index === mention.selectedIndex ? "activeMentionItem" : ""}`}
           onMouseDown={(event) => {
             event.preventDefault();

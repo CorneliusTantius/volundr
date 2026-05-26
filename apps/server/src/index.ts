@@ -17,6 +17,10 @@ import {
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
 const DEFAULT_RUNTIME_KEY = "default";
 const RUNTIME_IDLE_TTL_MS = 15 * 60 * 1000;
+const MAX_FILE_SUGGESTIONS = 50;
+const MAX_FILE_SCAN_ENTRIES = 4000;
+const MAX_FILE_SCAN_DEPTH = 8;
+const SKIP_DIR_NAMES = new Set([".git", "node_modules", "dist", "build", ".next", ".turbo"]);
 
 type TincanStats = {
   communication: boolean;
@@ -642,7 +646,7 @@ function getModelOptions(entry: RuntimeEntry) {
 }
 
 async function getFileSuggestions(prefix: string) {
-  const normalizedPrefix = prefix.replaceAll("\\", "/");
+  const normalizedPrefix = prefix.replaceAll("\\", "/").replace(/^\.?\//, "");
   const slashIndex = normalizedPrefix.lastIndexOf("/");
   const dirPrefix = slashIndex >= 0 ? normalizedPrefix.slice(0, slashIndex + 1) : "";
   const partial = slashIndex >= 0 ? normalizedPrefix.slice(slashIndex + 1) : normalizedPrefix;
@@ -650,6 +654,14 @@ async function getFileSuggestions(prefix: string) {
 
   if (!isPathInsideCwd(targetDir)) return [];
 
+  const direct = await listDirectSuggestions(targetDir, dirPrefix, partial);
+  if (!normalizedPrefix) return direct;
+
+  const recursive = await listRecursiveSuggestions(targetDir, dirPrefix, normalizedPrefix, partial);
+  return dedupeSuggestions([...direct, ...recursive]).slice(0, MAX_FILE_SUGGESTIONS);
+}
+
+async function listDirectSuggestions(targetDir: string, dirPrefix: string, partial: string) {
   let entries;
   try {
     entries = await readdir(targetDir, { withFileTypes: true });
@@ -660,22 +672,117 @@ async function getFileSuggestions(prefix: string) {
   const query = partial.toLowerCase();
   return entries
     .filter((entry) => !query || entry.name.toLowerCase().includes(query))
-    .sort((a, b) => {
-      const aStarts = query ? Number(a.name.toLowerCase().startsWith(query)) : 0;
-      const bStarts = query ? Number(b.name.toLowerCase().startsWith(query)) : 0;
-      if (aStarts !== bStarts) return bStarts - aStarts;
-      if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    })
-    .slice(0, 50)
-    .map((entry) => {
-      const path = `${dirPrefix}${entry.name}${entry.isDirectory() ? "/" : ""}`;
-      return {
-        name: entry.name,
-        path,
-        isDirectory: entry.isDirectory(),
-      };
-    });
+    .sort((a, b) => compareSuggestions({
+      name: a.name,
+      path: `${dirPrefix}${a.name}${a.isDirectory() ? "/" : ""}`,
+      isDirectory: a.isDirectory(),
+    }, {
+      name: b.name,
+      path: `${dirPrefix}${b.name}${b.isDirectory() ? "/" : ""}`,
+      isDirectory: b.isDirectory(),
+    }, dirPrefix ? `${dirPrefix}${partial}` : partial, partial))
+    .slice(0, MAX_FILE_SUGGESTIONS)
+    .map((entry) => ({
+      name: entry.name,
+      path: `${dirPrefix}${entry.name}${entry.isDirectory() ? "/" : ""}`,
+      isDirectory: entry.isDirectory(),
+    }));
+}
+
+async function listRecursiveSuggestions(targetDir: string, dirPrefix: string, query: string, partial: string) {
+  const suggestions: Array<{ name: string; path: string; isDirectory: boolean }> = [];
+  const queue: Array<{ dir: string; prefix: string; depth: number }> = [{ dir: targetDir, prefix: dirPrefix, depth: 0 }];
+  const seen = new Set<string>();
+  const queryLower = query.toLowerCase();
+  const partialLower = partial.toLowerCase();
+  let scanned = 0;
+
+  while (queue.length && scanned < MAX_FILE_SCAN_ENTRIES && suggestions.length < MAX_FILE_SUGGESTIONS * 3) {
+    const current = queue.shift();
+    if (!current) break;
+
+    let entries;
+    try {
+      entries = await readdir(current.dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      scanned++;
+      const entryPath = `${current.prefix}${entry.name}${entry.isDirectory() ? "/" : ""}`;
+      const entryPathLower = entryPath.toLowerCase();
+      const basenameLower = entry.name.toLowerCase();
+
+      if (!seen.has(entryPath) && (entryPathLower.includes(queryLower) || (!!partialLower && basenameLower.includes(partialLower)))) {
+        suggestions.push({
+          name: entry.name,
+          path: entryPath,
+          isDirectory: entry.isDirectory(),
+        });
+        seen.add(entryPath);
+      }
+
+      if (
+        entry.isDirectory()
+        && current.depth < MAX_FILE_SCAN_DEPTH
+        && scanned < MAX_FILE_SCAN_ENTRIES
+        && !SKIP_DIR_NAMES.has(entry.name)
+      ) {
+        queue.push({
+          dir: resolve(current.dir, entry.name),
+          prefix: `${current.prefix}${entry.name}/`,
+          depth: current.depth + 1,
+        });
+      }
+    }
+  }
+
+  return suggestions
+    .sort((a, b) => compareSuggestions(a, b, query, partial))
+    .slice(0, MAX_FILE_SUGGESTIONS);
+}
+
+function compareSuggestions(
+  a: { name: string; path: string; isDirectory: boolean },
+  b: { name: string; path: string; isDirectory: boolean },
+  query: string,
+  partial: string,
+) {
+  const scoreA = rankSuggestion(a, query, partial);
+  const scoreB = rankSuggestion(b, query, partial);
+  if (scoreA !== scoreB) return scoreB - scoreA;
+  if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+  if (a.path.length !== b.path.length) return a.path.length - b.path.length;
+  return a.path.localeCompare(b.path);
+}
+
+function rankSuggestion(
+  suggestion: { name: string; path: string; isDirectory: boolean },
+  query: string,
+  partial: string,
+) {
+  const path = suggestion.path.toLowerCase();
+  const name = suggestion.name.toLowerCase();
+  const queryLower = query.toLowerCase();
+  const partialLower = partial.toLowerCase();
+
+  let score = 0;
+  if (queryLower && path.startsWith(queryLower)) score += 120;
+  if (partialLower && name.startsWith(partialLower)) score += 80;
+  if (partialLower && path.includes(`/${partialLower}`)) score += 40;
+  if (queryLower && path.includes(queryLower)) score += 30;
+  if (suggestion.isDirectory) score += 10;
+  return score;
+}
+
+function dedupeSuggestions(suggestions: Array<{ name: string; path: string; isDirectory: boolean }>) {
+  const seen = new Set<string>();
+  return suggestions.filter((suggestion) => {
+    if (seen.has(suggestion.path)) return false;
+    seen.add(suggestion.path);
+    return true;
+  });
 }
 
 function isPathInsideCwd(path: string) {
