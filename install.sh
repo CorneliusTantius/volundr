@@ -2,7 +2,9 @@
 set -eu
 
 PACKAGE_NAME="volundr"
-PACKAGE_SOURCE="github:CorneliusTantius/volundr"
+PACKAGE_REPO="github:CorneliusTantius/volundr"
+PACKAGE_REF="${1:-${VOLUNDR_VERSION:-main}}"
+PACKAGE_SOURCE="${PACKAGE_REPO}#${PACKAGE_REF}"
 MIN_NODE_MAJOR=22
 MIN_NODE_MINOR=19
 
@@ -29,6 +31,6 @@ echo "installing $PACKAGE_NAME globally from $PACKAGE_SOURCE ..."
 npm install -g "$PACKAGE_SOURCE"
 
 echo
-echo "installed."
+echo "installed $PACKAGE_NAME ($PACKAGE_REF)."
 echo "run in any project directory:"
 echo "  volundr"

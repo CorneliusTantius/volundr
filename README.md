@@ -6,14 +6,36 @@ Lightweight web harness for Pi coding agent.
 
 ### npm
 
+Latest main:
+
 ```bash
 npm install -g github:CorneliusTantius/volundr
 ```
 
+Specific ref/tag/branch:
+
+```bash
+npm install -g github:CorneliusTantius/volundr#v0.1.0
+```
+
 ### install.sh
+
+Latest main:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/CorneliusTantius/volundr/main/install.sh | sh
+```
+
+Specific ref/tag/branch:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/CorneliusTantius/volundr/main/install.sh | sh -s -- v0.1.0
+```
+
+Or via env:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/CorneliusTantius/volundr/main/install.sh | VOLUNDR_VERSION=v0.1.0 sh
 ```
 
 ## Run
