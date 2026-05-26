@@ -48,6 +48,17 @@ echo "installing dependencies + building ..."
 npm install
 npm run build
 
+GLOBAL_ROOT=$(npm root -g 2>/dev/null || true)
+GLOBAL_BIN=$(dirname "$GLOBAL_ROOT")/bin
+if [ -n "$GLOBAL_BIN" ] && [ -L "$GLOBAL_BIN/$PACKAGE_NAME" ]; then
+  echo "cleaning existing global bin link: $GLOBAL_BIN/$PACKAGE_NAME"
+  rm -f "$GLOBAL_BIN/$PACKAGE_NAME"
+fi
+if [ -n "$GLOBAL_ROOT" ] && [ -L "$GLOBAL_ROOT/$PACKAGE_NAME" ]; then
+  echo "cleaning existing global package link: $GLOBAL_ROOT/$PACKAGE_NAME"
+  rm -f "$GLOBAL_ROOT/$PACKAGE_NAME"
+fi
+
 echo "installing $PACKAGE_NAME globally from local build ..."
 npm install -g .
 
