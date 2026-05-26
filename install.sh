@@ -27,6 +27,12 @@ if [ "$NODE_MAJOR" -lt "$MIN_NODE_MAJOR" ] || { [ "$NODE_MAJOR" -eq "$MIN_NODE_M
   exit 1
 fi
 
+BROKEN_LINK=$(find "$(npm root -g 2>/dev/null || echo '')" -maxdepth 1 -xtype l -name "$PACKAGE_NAME" 2>/dev/null || true)
+if [ -n "$BROKEN_LINK" ]; then
+  echo "cleaning broken global link: $BROKEN_LINK"
+  rm -f "$BROKEN_LINK"
+fi
+
 echo "installing $PACKAGE_NAME globally from $PACKAGE_SOURCE ..."
 npm install -g "$PACKAGE_SOURCE"
 

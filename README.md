@@ -116,4 +116,5 @@ Build output:
 - built-in Pi tools come from Pi defaults
 - current directory is passed as `VOLUNDR_CWD`
 - install.sh currently installs from GitHub repo, not npm registry
+- if a broken old global `volundr` symlink exists, install.sh removes it first
 - Node `>= 22.19.0` required

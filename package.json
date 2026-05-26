@@ -20,6 +20,7 @@
     "dev:server": "npm run dev --workspace @volundr/server",
     "dev:web": "npm run dev --workspace @volundr/web",
     "build": "npm run build --workspace @volundr/web && npm run build --workspace @volundr/server",
+    "prepare": "npm run build",
     "typecheck": "npm run typecheck --workspace @volundr/server && npm run typecheck --workspace @volundr/web"
   },
   "dependencies": {

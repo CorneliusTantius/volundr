@@ -36,7 +36,7 @@ if (command === "help" || command === "--help" || command === "-h") {
   console.log(version);
 } else if (command === "update") {
   const ref = process.argv[3] || "main";
-  const child = spawn("npm", ["install", "-g", `${githubRepo}#${ref}`], {
+  const child = spawn("npm", ["install", "-g", `${githubRepo}#${ref}`, "--force"], {
     stdio: "inherit",
     env: process.env,
   });
