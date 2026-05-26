@@ -58,7 +58,10 @@ function updateVolundr(ref) {
     runOrExit("git", ["clone", "--depth", "1", "--branch", ref, githubHttpRepo, repoDir]);
     runOrExit("npm", ["install"], { cwd: repoDir });
     runOrExit("npm", ["run", "build"], { cwd: repoDir });
-    runOrExit("npm", ["install", "-g", "."], { cwd: repoDir });
+    runOrExit("npm", ["pack"], { cwd: repoDir });
+    const packed = JSON.parse(readFileSync(join(repoDir, "package.json"), "utf8"));
+    const tarball = join(repoDir, `${packed.name}-${packed.version}.tgz`);
+    runOrExit("npm", ["install", "-g", tarball]);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }

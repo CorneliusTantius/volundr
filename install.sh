@@ -59,8 +59,11 @@ if [ -n "$GLOBAL_ROOT" ] && [ -L "$GLOBAL_ROOT/$PACKAGE_NAME" ]; then
   rm -f "$GLOBAL_ROOT/$PACKAGE_NAME"
 fi
 
-echo "installing $PACKAGE_NAME globally from local build ..."
-npm install -g .
+echo "packing $PACKAGE_NAME ..."
+npm pack
+
+echo "installing $PACKAGE_NAME globally from packed build ..."
+npm install -g "$PACKAGE_NAME-$PACKAGE_REF.tgz" 2>/dev/null || npm install -g ./$(ls -1 *.tgz | head -1)
 
 echo
 echo "installed $PACKAGE_NAME ($PACKAGE_REF)."
