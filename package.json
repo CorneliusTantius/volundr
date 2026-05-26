@@ -1,0 +1,34 @@
+{
+  "name": "volundr",
+  "version": "0.1.0",
+  "description": "Lightweight web harness for Pi coding agent",
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "bin": {
+    "volundr": "bin/volundr.js"
+  },
+  "files": [
+    "bin",
+    "apps/server/dist",
+    "apps/web/dist",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @volundr/server & npm run dev --workspace @volundr/web",
+    "dev:server": "npm run dev --workspace @volundr/server",
+    "dev:web": "npm run dev --workspace @volundr/web",
+    "build": "npm run build --workspace @volundr/web && npm run build --workspace @volundr/server",
+    "typecheck": "npm run typecheck --workspace @volundr/server && npm run typecheck --workspace @volundr/web"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "^0.75.5"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
