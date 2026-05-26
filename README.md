@@ -13,7 +13,7 @@ npm install -g volundr
 ### install.sh
 
 ```bash
-curl -fsSL https://YOUR_DOMAIN/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/CorneliusTantius/volundr/main/install.sh | sh
 ```
 
 ## Run
