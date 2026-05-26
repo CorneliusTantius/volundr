@@ -27,14 +27,29 @@ if [ "$NODE_MAJOR" -lt "$MIN_NODE_MAJOR" ] || { [ "$NODE_MAJOR" -eq "$MIN_NODE_M
   exit 1
 fi
 
+TMPDIR=$(mktemp -d)
+cleanup() {
+  rm -rf "$TMPDIR"
+}
+trap cleanup EXIT INT TERM
+
 BROKEN_LINK=$(find "$(npm root -g 2>/dev/null || echo '')" -maxdepth 1 -xtype l -name "$PACKAGE_NAME" 2>/dev/null || true)
 if [ -n "$BROKEN_LINK" ]; then
   echo "cleaning broken global link: $BROKEN_LINK"
   rm -f "$BROKEN_LINK"
 fi
 
-echo "installing $PACKAGE_NAME globally from $PACKAGE_SOURCE ..."
-npm install -g "$PACKAGE_SOURCE"
+echo "cloning $PACKAGE_SOURCE ..."
+need_cmd git
+git clone --depth 1 --branch "$PACKAGE_REF" "https://github.com/CorneliusTantius/volundr.git" "$TMPDIR/$PACKAGE_NAME"
+
+cd "$TMPDIR/$PACKAGE_NAME"
+echo "installing dependencies + building ..."
+npm install
+npm run build
+
+echo "installing $PACKAGE_NAME globally from local build ..."
+npm install -g .
 
 echo
 echo "installed $PACKAGE_NAME ($PACKAGE_REF)."

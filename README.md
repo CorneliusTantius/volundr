@@ -18,6 +18,8 @@ Specific ref/tag/branch:
 npm install -g github:CorneliusTantius/volundr#v0.1.0
 ```
 
+Note: direct GitHub npm install may fail on some systems because this repo needs a build step. `install.sh` is recommended.
+
 ### install.sh
 
 Latest main:
@@ -115,6 +117,7 @@ Build output:
 - packaged CLI serves built SPA directly from server
 - built-in Pi tools come from Pi defaults
 - current directory is passed as `VOLUNDR_CWD`
+- install.sh clones repo, installs deps, builds locally, then installs globally
 - install.sh currently installs from GitHub repo, not npm registry
 - if a broken old global `volundr` symlink exists, install.sh removes it first
 - Node `>= 22.19.0` required

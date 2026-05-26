@@ -20,7 +20,6 @@
     "dev:server": "npm run dev --prefix apps/server",
     "dev:web": "npm run dev --prefix apps/web",
     "build": "npm run build --prefix apps/web && npm run build --prefix apps/server",
-    "prepare": "npm run build",
     "typecheck": "npm run typecheck --prefix apps/server && npm run typecheck --prefix apps/web"
   },
   "dependencies": {
