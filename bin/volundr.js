@@ -53,11 +53,17 @@ function runOrExit(cmd, args, options = {}) {
 
 function cleanGlobalVolundrLinks() {
   const npmRoot = spawnSync("npm", ["root", "-g"], { encoding: "utf8", env: process.env });
+  const npmPrefix = spawnSync("npm", ["prefix", "-g"], { encoding: "utf8", env: process.env });
   if (npmRoot.status !== 0) return;
   const globalRoot = npmRoot.stdout.trim();
+  const globalPrefix = npmPrefix.status === 0 ? npmPrefix.stdout.trim() : "";
   if (!globalRoot) return;
-  const globalBin = resolve(globalRoot, "..", "bin");
-  rmSync(join(globalBin, "volundr"), { force: true });
+  const globalBin = process.platform === "win32" ? globalPrefix : resolve(globalRoot, "..", "bin");
+  if (globalBin) {
+    rmSync(join(globalBin, "volundr"), { force: true });
+    rmSync(join(globalBin, "volundr.cmd"), { force: true });
+    rmSync(join(globalBin, "volundr.ps1"), { force: true });
+  }
   rmSync(join(globalRoot, "volundr"), { force: true, recursive: true });
 }
 

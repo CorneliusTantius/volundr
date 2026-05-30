@@ -49,21 +49,29 @@ npm install
 npm run build
 
 GLOBAL_ROOT=$(npm root -g 2>/dev/null || true)
+GLOBAL_PREFIX=$(npm prefix -g 2>/dev/null || true)
 GLOBAL_BIN=$(dirname "$GLOBAL_ROOT")/bin
-if [ -n "$GLOBAL_BIN" ] && [ -L "$GLOBAL_BIN/$PACKAGE_NAME" ]; then
-  echo "cleaning existing global bin link: $GLOBAL_BIN/$PACKAGE_NAME"
-  rm -f "$GLOBAL_BIN/$PACKAGE_NAME"
+case "$(node -p 'process.platform')" in
+  win32) GLOBAL_BIN="$GLOBAL_PREFIX" ;;
+esac
+if [ -n "$GLOBAL_BIN" ]; then
+  for shim in "$GLOBAL_BIN/$PACKAGE_NAME" "$GLOBAL_BIN/$PACKAGE_NAME.cmd" "$GLOBAL_BIN/$PACKAGE_NAME.ps1"; do
+    if [ -e "$shim" ] || [ -L "$shim" ]; then
+      echo "cleaning existing global bin shim: $shim"
+      rm -f "$shim"
+    fi
+  done
 fi
-if [ -n "$GLOBAL_ROOT" ] && [ -L "$GLOBAL_ROOT/$PACKAGE_NAME" ]; then
-  echo "cleaning existing global package link: $GLOBAL_ROOT/$PACKAGE_NAME"
-  rm -f "$GLOBAL_ROOT/$PACKAGE_NAME"
+if [ -n "$GLOBAL_ROOT" ] && { [ -e "$GLOBAL_ROOT/$PACKAGE_NAME" ] || [ -L "$GLOBAL_ROOT/$PACKAGE_NAME" ]; }; then
+  echo "cleaning existing global package: $GLOBAL_ROOT/$PACKAGE_NAME"
+  rm -rf "$GLOBAL_ROOT/$PACKAGE_NAME"
 fi
 
 echo "packing $PACKAGE_NAME ..."
-npm pack
+TARBALL=$(npm pack --json | node -e 'let s=""; process.stdin.on("data", d => s += d); process.stdin.on("end", () => console.log(JSON.parse(s)[0].filename));')
 
 echo "installing $PACKAGE_NAME globally from packed build ..."
-npm install -g "$PACKAGE_NAME-$PACKAGE_REF.tgz" 2>/dev/null || npm install -g ./$(ls -1 *.tgz | head -1)
+npm install -g "./$TARBALL"
 
 echo
 echo "installed $PACKAGE_NAME ($PACKAGE_REF)."
