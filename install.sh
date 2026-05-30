@@ -68,7 +68,7 @@ if [ -n "$GLOBAL_ROOT" ] && { [ -e "$GLOBAL_ROOT/$PACKAGE_NAME" ] || [ -L "$GLOB
 fi
 
 echo "packing $PACKAGE_NAME ..."
-TARBALL=$(npm pack --json | node -e 'let s=""; process.stdin.on("data", d => s += d); process.stdin.on("end", () => console.log(JSON.parse(s)[0].filename));')
+TARBALL=$(npm pack | tail -n 1 | tr -d '\r')
 
 echo "installing $PACKAGE_NAME globally from packed build ..."
 npm install -g "./$TARBALL"
