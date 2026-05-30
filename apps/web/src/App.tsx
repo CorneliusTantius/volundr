@@ -837,7 +837,6 @@ export function App() {
             messages={messages}
             streamingText={streamingText}
             toolRuns={toolRuns}
-            isStreaming={state?.isStreaming}
           />
 
           <footer class="composer panel">
@@ -847,6 +846,12 @@ export function App() {
               <option value="followUp">follow-up</option>
             </select>
             <div class="composerInputWrap">
+              {state?.isStreaming && (
+                <div class="composerRunningIndicator" aria-label="running">
+                  <span class="composerLiveDot" />
+                  <span>running</span>
+                </div>
+              )}
               <textarea
                 ref={textareaRef}
                 rows={2}
@@ -1103,12 +1108,10 @@ function TranscriptPanel({
   messages,
   streamingText,
   toolRuns,
-  isStreaming,
 }: {
   messages: Message[];
   streamingText: string;
   toolRuns: ToolRun[];
-  isStreaming?: boolean;
 }) {
   const logRef = useRef<HTMLDivElement>(null);
   const history = useMemo(() => normalizeTranscript(messages), [messages]);
@@ -1127,7 +1130,7 @@ function TranscriptPanel({
     <section class="panel transcript">
       <div class="panelTitle">
         <strong>Transcript</strong>
-        <span class={`statsBadge ${isStreaming ? "runningState" : ""}`}>{history.items.filter((item) => item.type === "message").length} messages</span>
+        <span class="statsBadge">{history.items.filter((item) => item.type === "message").length} messages</span>
       </div>
       <div ref={logRef} class="log">
         {history.items.map((item) => {

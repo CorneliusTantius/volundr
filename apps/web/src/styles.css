@@ -1,13 +1,13 @@
 :root {
   color-scheme: dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #222831;
+  background: #101214;
   color: #DDDDDD;
-  --base: #222831;
-  --mantle: #222831;
-  --crust: #181d24;
-  --surface0: #272f39;
-  --surface1: #2c3642;
+  --base: #101214;
+  --mantle: #15181b;
+  --crust: #0b0d0f;
+  --surface0: #15181b;
+  --surface1: #1b1f23;
   --surface2: #30475E;
   --border: #30475E;
   --text: #DDDDDD;
@@ -15,15 +15,15 @@
   --subtext1: #c8d0d8;
   --blue: #30475E;
   --lavender: #30475E;
-  --green: #DDDDDD;
+  --green: #08D9D6;
   --yellow: #DDDDDD;
   --red: #F05454;
   --teal: #30475E;
   --mauve: #DDDDDD;
-  --bubble-user: #2c3642;
-  --bubble-assistant: #272f39;
-  --bubble-meta: #252c35;
-  --bubble-tool: #2f333d;
+  --bubble-user: #1b1f23;
+  --bubble-assistant: #15181b;
+  --bubble-meta: #15181b;
+  --bubble-tool: #1b1f23;
 }
 
 html, body, #app { height: 100%; }
@@ -51,8 +51,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .topbar, .panel, .composer, .error {
   border: 1px solid var(--border);
-  background: var(--mantle);
-  border-radius: 18px;
+  background: transparent;
+  border-radius: 0;
   box-shadow: none;
 }
 
@@ -136,7 +136,7 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
   margin-top: -0.19rem;
   border-radius: 999px;
   background: var(--green);
-  box-shadow: 0 0 0 rgba(221, 221, 221, 0.26);
+  box-shadow: 0 0 0 rgba(8, 217, 214, 0.26);
   animation: pulseDot 0.9s ease-in-out infinite;
 }
 
@@ -211,8 +211,8 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
   min-width: 0;
   text-align: left;
   padding: 0.7rem 0.8rem;
-  border-radius: 12px;
-  background: var(--surface0);
+  border-radius: 10px;
+  background: transparent;
 }
 .sessionItem > span,
 .sessionItem > small {
@@ -239,7 +239,7 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
   border-radius: 999px;
   flex: 0 0 auto;
   background: var(--green);
-  box-shadow: 0 0 0 rgba(221, 221, 221, 0.26);
+  box-shadow: 0 0 0 rgba(8, 217, 214, 0.26);
   animation: pulseDot 0.9s ease-in-out infinite;
 }
 .activeSession {
@@ -287,6 +287,7 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
 
 .statsRail {
   min-width: 0;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -296,6 +297,9 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
 }
 .configCard {
   margin-bottom: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
 }
 .configField {
   min-width: 0;
@@ -312,9 +316,20 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
   width: 100%;
   min-width: 0;
   overflow: hidden;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
   text-align: left;
   background: var(--surface0);
+}
+.configTrigger::after {
+  content: "open";
+  flex: 0 0 auto;
+  color: var(--green);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 .configTrigger strong {
   display: block;
@@ -374,8 +389,8 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
   display: grid;
   gap: 0.55rem;
   padding: 0.8rem;
-  border-radius: 14px;
-  background: var(--surface0);
+  border-radius: 10px;
+  background: transparent;
   border: 1px solid var(--border);
 }
 .statTitle {
@@ -445,9 +460,9 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
   min-height: 0;
   overflow: auto;
   scrollbar-gutter: stable;
-  border-radius: 14px;
-  background: var(--crust);
-  padding: 1rem 1.05rem;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   white-space: normal;
 }
@@ -603,7 +618,7 @@ p { margin: 0.25rem 0 0; color: var(--subtext0); }
   padding: 0.6rem 0.7rem;
 }
 .toolGroup {
-  background: #2f333d;
+  background: #1b1f23;
 }
 .toolNested {
   margin: 0.55rem 0 0;
@@ -774,7 +789,7 @@ textarea:focus-visible {
   display: grid;
   grid-template-columns: 120px minmax(0, 1fr) auto;
   gap: 0.65rem;
-  align-items: stretch;
+  align-items: start;
   padding: 0.7rem;
   overflow: visible;
 }
@@ -784,10 +799,33 @@ textarea:focus-visible {
   width: 100%;
   overflow: visible;
 }
+.composerRunningIndicator {
+  position: absolute;
+  left: 0.15rem;
+  bottom: calc(100% + 0.45rem);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--green);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.composerLiveDot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  background: var(--green);
+  box-shadow: 0 0 0 rgba(8, 217, 214, 0.26);
+  animation: pulseDot 0.9s ease-in-out infinite;
+}
 .mentionMenu {
-  position: relative;
-  margin-top: 0.45rem;
-  z-index: 1;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 0.45rem);
+  z-index: 20;
   display: grid;
   gap: 0.3rem;
   max-height: 14rem;
@@ -832,9 +870,11 @@ textarea:focus-visible {
   display: flex;
   gap: 0.5rem;
   align-items: stretch;
+  min-height: 3.2rem;
 }
 .composer button,
 .composer select {
+  height: 3.2rem;
   min-height: 3.2rem;
 }
 .composerActions button {
@@ -844,6 +884,7 @@ textarea {
   display: block;
   width: 100%;
   min-width: 0;
+  height: 3.2rem;
   min-height: 3.2rem;
   max-height: 13.75rem;
   resize: none;
@@ -880,6 +921,25 @@ textarea,
   border: 0;
 }
 
+.configTrigger,
+.configOption {
+  border: 1px solid var(--surface2);
+  box-shadow: inset 0 0 0 1px rgba(8, 217, 214, 0.12);
+}
+.configTrigger:hover,
+.configTrigger:focus-visible,
+.configOption:hover,
+.configOption:focus-visible {
+  border-color: var(--green);
+  background: var(--surface1);
+  box-shadow: 0 0 0 2px rgba(8, 217, 214, 0.14);
+}
+.configTrigger:focus-visible,
+.configOption:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
 .markdownRoot blockquote,
 .markdownRoot hr,
 .toolDetails {
@@ -896,8 +956,8 @@ textarea,
   content: "";
   position: absolute;
   left: 0;
-  top: 0;
-  bottom: 0;
+  top: -1rem;
+  bottom: -1rem;
   width: 1px;
   background: var(--surface2);
   border-radius: 0;
@@ -907,12 +967,12 @@ textarea,
   0%, 100% {
     opacity: 0.55;
     transform: scale(0.9);
-    box-shadow: 0 0 0 0 rgba(221, 221, 221, 0.14);
+    box-shadow: 0 0 0 0 rgba(8, 217, 214, 0.14);
   }
   50% {
     opacity: 1;
     transform: scale(1.15);
-    box-shadow: 0 0 0 0.35rem rgba(221, 221, 221, 0.08);
+    box-shadow: 0 0 0 0.35rem rgba(8, 217, 214, 0.08);
   }
 }
 
