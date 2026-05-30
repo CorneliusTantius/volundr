@@ -9,18 +9,22 @@ Lightweight web harness for Pi coding agent.
 Latest main:
 
 ```bash
-npm install -g github:CorneliusTantius/volundr
+npm install -g @earendil-works/pi-coding-agent github:CorneliusTantius/volundr
+pi install git:github.com/CorneliusTantius/pi-tincan
 ```
 
 Specific ref/tag/branch:
 
 ```bash
-npm install -g github:CorneliusTantius/volundr#v1.0.0
+npm install -g @earendil-works/pi-coding-agent github:CorneliusTantius/volundr#v1.0.0
+pi install git:github.com/CorneliusTantius/pi-tincan
 ```
 
-Note: direct GitHub npm install may fail on some systems because this repo needs a build step. `install.sh` is recommended.
+Note: direct GitHub npm install may fail on some systems because this repo needs a build step. `install.sh` is recommended. `@earendil-works/pi-coding-agent` provides the `pi` CLI used by `pi install`.
 
 ### install.sh
+
+Installs `volundr` globally and installs Pi package `pi-tincan`.
 
 Latest main:
 
@@ -146,9 +150,12 @@ Build output:
 ## Notes
 
 - packaged CLI serves built SPA directly from server
-- built-in Pi tools come from Pi defaults
+- built-in Pi tools come from Pi defaults + installed `pi-tincan` package
 - current directory is passed as `VOLUNDR_CWD`
 - install.sh clones repo, installs deps, builds locally, packs tarball, then installs globally
+- install.sh installs `pi-tincan` via `pi install git:github.com/CorneliusTantius/pi-tincan`
+- set `VOLUNDR_INSTALL_PI_TINCAN=0` to skip `pi-tincan` install
+- set `PI_TINCAN_SOURCE=git:github.com/CorneliusTantius/pi-tincan@<ref>` to pin/update source
 - install.sh currently installs from GitHub repo, not npm registry
 - if a broken old global `volundr` symlink exists, install.sh removes it first
 - Node `>= 22.19.0` required

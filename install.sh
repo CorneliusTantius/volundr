@@ -5,7 +5,9 @@ PACKAGE_NAME="volundr"
 PACKAGE_REPO="github:CorneliusTantius/volundr"
 PACKAGE_REF="${1:-${VOLUNDR_VERSION:-main}}"
 PACKAGE_SOURCE="${PACKAGE_REPO}#${PACKAGE_REF}"
-INSTALLER_VERSION="2026-05-30.2"
+PI_TINCAN_SOURCE="${PI_TINCAN_SOURCE:-git:github.com/CorneliusTantius/pi-tincan}"
+INSTALL_PI_TINCAN="${VOLUNDR_INSTALL_PI_TINCAN:-1}"
+INSTALLER_VERSION="2026-05-30.3"
 MIN_NODE_MAJOR=22
 MIN_NODE_MINOR=19
 
@@ -76,7 +78,24 @@ TARBALL=$(npm pack --ignore-scripts | tail -n 1 | tr -d '\r')
 echo "installing $PACKAGE_NAME globally from packed build ..."
 npm install -g "./$TARBALL"
 
+if [ "$INSTALL_PI_TINCAN" != "0" ]; then
+  echo "installing pi-tincan package ..."
+  if command -v pi >/dev/null 2>&1; then
+    pi install "$PI_TINCAN_SOURCE"
+  elif [ -n "$GLOBAL_ROOT" ] && [ -f "$GLOBAL_ROOT/$PACKAGE_NAME/node_modules/@earendil-works/pi-coding-agent/dist/cli.js" ]; then
+    node "$GLOBAL_ROOT/$PACKAGE_NAME/node_modules/@earendil-works/pi-coding-agent/dist/cli.js" install "$PI_TINCAN_SOURCE"
+  else
+    echo "error: pi CLI not found; install @earendil-works/pi-coding-agent or set VOLUNDR_INSTALL_PI_TINCAN=0" >&2
+    exit 1
+  fi
+else
+  echo "skipping pi-tincan install (VOLUNDR_INSTALL_PI_TINCAN=0)"
+fi
+
 echo
 echo "installed $PACKAGE_NAME ($PACKAGE_REF)."
+if [ "$INSTALL_PI_TINCAN" != "0" ]; then
+  echo "installed pi-tincan ($PI_TINCAN_SOURCE)."
+fi
 echo "run in any project directory:"
 echo "  volundr"
