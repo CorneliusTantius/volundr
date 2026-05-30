@@ -5,6 +5,7 @@ PACKAGE_NAME="volundr"
 PACKAGE_REPO="github:CorneliusTantius/volundr"
 PACKAGE_REF="${1:-${VOLUNDR_VERSION:-main}}"
 PACKAGE_SOURCE="${PACKAGE_REPO}#${PACKAGE_REF}"
+INSTALLER_VERSION="2026-05-30.2"
 MIN_NODE_MAJOR=22
 MIN_NODE_MINOR=19
 
@@ -14,6 +15,8 @@ need_cmd() {
     exit 1
   }
 }
+
+echo "volundr installer $INSTALLER_VERSION"
 
 need_cmd node
 need_cmd npm
@@ -45,7 +48,7 @@ git clone --depth 1 --branch "$PACKAGE_REF" "https://github.com/CorneliusTantius
 
 cd "$TMPDIR/$PACKAGE_NAME"
 echo "installing dependencies + building ..."
-npm install
+npm install --ignore-scripts
 npm run build
 
 GLOBAL_ROOT=$(npm root -g 2>/dev/null || true)
@@ -68,7 +71,7 @@ if [ -n "$GLOBAL_ROOT" ] && { [ -e "$GLOBAL_ROOT/$PACKAGE_NAME" ] || [ -L "$GLOB
 fi
 
 echo "packing $PACKAGE_NAME ..."
-TARBALL=$(npm pack | tail -n 1 | tr -d '\r')
+TARBALL=$(npm pack --ignore-scripts | tail -n 1 | tr -d '\r')
 
 echo "installing $PACKAGE_NAME globally from packed build ..."
 npm install -g "./$TARBALL"
