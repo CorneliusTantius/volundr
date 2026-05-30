@@ -840,7 +840,7 @@ export function App() {
           />
 
           <footer class="composer panel">
-            <select value={mode} onChange={(event) => setMode((event.currentTarget as HTMLSelectElement).value as any)}>
+            <select class="composerModeSelect" value={mode} onChange={(event) => setMode((event.currentTarget as HTMLSelectElement).value as any)}>
               <option value="prompt">prompt</option>
               <option value="steer">steer</option>
               <option value="followUp">follow-up</option>
@@ -1285,6 +1285,9 @@ function StatsPanel({ stats }: { stats: WebStats }) {
         <StatRow label="runs" value={fmtNum(tincan?.squad?.agentRuns)} />
         <StatRow label="live" value={fmtNum(tincan?.squad?.running)} />
         <StatRow label="mode" value={tincan?.squad?.lastMode ?? "idle"} />
+        <StatGroup label="top agents">
+          {topAgents.length ? topAgents.map(([name, count]) => <StatRow key={name} label={name} value={fmtNum(count)} />) : <div class="statsEmpty">no runs yet</div>}
+        </StatGroup>
       </StatCard>
 
       <StatCard title="RTK">
@@ -1293,10 +1296,6 @@ function StatsPanel({ stats }: { stats: WebStats }) {
         <StatRow label="rewrites" value={fmtNum(tincan?.rtk?.rewrites)} />
         <StatRow label="session saved" value={fmtNum(tincan?.rtk?.saved)} />
         <StatRow label="rate" value={tincan?.rtk?.pct != null ? `${Math.round(tincan.rtk.pct)}%` : "0%"} />
-      </StatCard>
-
-      <StatCard title="Top agents">
-        {topAgents.length ? topAgents.map(([name, count]) => <StatRow key={name} label={name} value={fmtNum(count)} />) : <div class="statsEmpty">no runs yet</div>}
       </StatCard>
     </div>
   );
@@ -1320,6 +1319,15 @@ function StatRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function StatGroup({ label, children }: { label: string; children: any }) {
+  return (
+    <div class="statGroup">
+      <div class="statGroupLabel">{label}</div>
+      <div class="statGroupBody">{children}</div>
+    </div>
+  );
+}
+
 function StatDetail({ label, value, extra }: { label: string; value: string; extra?: any }) {
   return (
     <div class="statDetail">
@@ -1336,7 +1344,7 @@ function ProgressBar({ value }: { value: number }) {
   const clamped = Math.max(0, Math.min(100, value));
   return (
     <div class="progressBar" aria-label={`Context usage ${clamped.toFixed(2)}%`}>
-      <div class="progressBarFill" style={{ width: `${clamped}%` }} />
+      <div class="progressBarFill" style={{ width: `${clamped}%`, minWidth: clamped > 0 ? "0.28rem" : 0 }} />
     </div>
   );
 }
