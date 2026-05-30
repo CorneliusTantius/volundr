@@ -1164,14 +1164,18 @@ function ConfigPanel({
       <div class="statTitle">Config</div>
       <div class="statBody">
         <StatRow label="cwd" value={shortenPath(cwd ?? "unknown")} />
-        <button class="configTrigger" onClick={onOpenModel}>
-          <span>model</span>
-          <strong>{currentModelLabel}</strong>
-        </button>
-        <button class="configTrigger" onClick={onOpenThinking}>
-          <span>thinking</span>
-          <strong>{currentThinkingLevel}</strong>
-        </button>
+        <div class="configField">
+          <span class="configFieldLabel">model</span>
+          <button class="configTrigger" title={currentModelLabel} aria-label={`model: ${currentModelLabel}`} onClick={onOpenModel}>
+            <strong>{currentModelLabel}</strong>
+          </button>
+        </div>
+        <div class="configField">
+          <span class="configFieldLabel">thinking</span>
+          <button class="configTrigger" title={currentThinkingLevel} aria-label={`thinking: ${currentThinkingLevel}`} onClick={onOpenThinking}>
+            <strong>{currentThinkingLevel}</strong>
+          </button>
+        </div>
       </div>
     </section>
   );

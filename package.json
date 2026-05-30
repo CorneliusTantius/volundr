@@ -23,7 +23,7 @@
     "typecheck": "npm run typecheck --prefix apps/server && npm run typecheck --prefix apps/web"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "^0.75.5"
+    "@earendil-works/pi-coding-agent": "^0.77.0"
   },
   "engines": {
     "node": ">=22.19.0"
